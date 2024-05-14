@@ -1,5 +1,6 @@
 export type EnergyDataType = {
-    date: string,
-    consumption: number,
-    production: number
+    country: string,
+    year: string,
+    consumption?: number,
+    production?: number
 }

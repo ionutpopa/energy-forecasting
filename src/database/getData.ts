@@ -3,14 +3,16 @@ import { EnergyDataType } from "../types/data"
 
 export const getData = async (
     id: number,
-    date: string,
+    country: string,
+    year: string,
     consumption: number,
     production: number
 ) => {
     const data = await ElectricDataTable.findOne({
         where: {
             id: id,
-            date: date,
+            country: country,
+            year: year,
             consumption: consumption,
             production: production
         }

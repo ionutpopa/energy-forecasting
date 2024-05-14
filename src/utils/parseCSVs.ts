@@ -1,6 +1,7 @@
 import fs from 'fs'
 import readline from 'readline'
 import { transformResponse } from './transformResponse'
+import { addData } from '../database/addData'
 
 // Energy consumption in the world file path
 const firstFilePath = "global-energy-substitution.csv"
@@ -46,9 +47,29 @@ rl1.on("close", () => {
     })
 
     rl2.on("close", () => {
-        // transformResponse(consumptionData)
-        // console.log("consumptionData", consumptionData)
-        // transformResponse(productionData)
-        console.log("productionData", productionData)
+        const transformedConsumptionData = transformResponse(consumptionData, 'consumption')
+        const transformedProductionData =  transformResponse(productionData, 'production')
+
+        // Store the transformed data in the database
+        for (let i = 0; i < transformedConsumptionData?.length; i++) {
+            const data = transformedConsumptionData[i]
+            // Store the data in the database
+            addData(
+                data.country,
+                data.year,
+                data.consumption,
+            )
+        }
+
+        for (let i = 0; i < transformedProductionData?.length; i++) {
+            const data = transformedProductionData[i]
+            // Store the data in the database
+            addData(
+                data.country,
+                data.year,
+                undefined,
+                data.production
+            )
+        }
     })
 })

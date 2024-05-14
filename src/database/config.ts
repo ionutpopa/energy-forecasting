@@ -8,6 +8,10 @@ const sequelize = new Sequelize({
 
 export const ElectricDataTable = sequelize.define("ElectricDataTable", {
     // Model attributes are defined here
+    country: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
     year: {
         type: DataTypes.STRING,
         allowNull: false
@@ -25,6 +29,9 @@ export const ElectricDataTable = sequelize.define("ElectricDataTable", {
 (async () => {
     try {
         await sequelize.sync()
+        
+        // Drop the table
+        // await ElectricDataTable.drop();
 
         console.log("Database synchronized")
     } catch (error) {
