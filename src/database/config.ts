@@ -1,7 +1,7 @@
 import { Sequelize, DataTypes } from "sequelize";
 
 // Initialize Sequelize with SQLite dialect
-const sequelize = new Sequelize({
+export const sequelize = new Sequelize({
     dialect: "sqlite",
     storage: "database.sqlite"
 })
@@ -37,7 +37,7 @@ export const ElectricDataTable = sequelize.define("ElectricDataTable", {
     } catch (error) {
         console.error("An error occurred while synchronizing the database", error)
     } finally {
-        await sequelize.close()
+        // await sequelize.close()
         console.log("Database connection closed")
     }
 })()

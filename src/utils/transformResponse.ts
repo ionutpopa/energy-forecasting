@@ -1,6 +1,6 @@
-import { EnergyDataType } from "../types/data"
+import { EnergyDataType, EnergyType } from "../types/data"
 
-export const transformResponse = (data: string[][], typeOfEnergy: 'consumption' | 'production') => {
+export const transformResponse = (data: string[][], typeOfEnergy: EnergyType) => {
     const arrayToStoreNedData: EnergyDataType[] = []
 
     for (let i = 1; i < data.length; i++) {

@@ -1,15 +1,27 @@
-import { predictService } from "../services"
+import { feedModel } from "../services"
 import logger from "../utils/formatLogs"
 
 /**
- * Function to predict the output of the model for the next 30 days that calls the predictService
+ * Function to feed model controller
  * @param req The request object
  * @param res The response object
  */
-export const predictController = async (req: { query: any }, res: any) => {
+export const feedModelController = async (req: { body: any }, res: any) => {
     try {
-        // console.log(req.query)
-        return await predictService()
+        const type = req.body?.type
+
+        if (!type) {
+            return res.status(400).send({
+                message: 'Type is required'
+            })
+        }
+
+        const response = await feedModel(type)
+
+        res.send({
+            message: 'Feeding model started',
+            response: response
+        })
     } catch (error) {
         logger(JSON.stringify(error), "error")
         logger("Error from predictController", "error") 

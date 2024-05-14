@@ -4,3 +4,5 @@ export type EnergyDataType = {
     consumption?: number,
     production?: number
 }
+
+export type EnergyType = 'consumption' | 'production'
