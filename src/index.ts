@@ -14,7 +14,7 @@ app.use('/', router)
 require("./database/config")
 
 // Start the csv parsing, only run this once on your local machine
-// require("./utils/parseCSVs")
+require("./utils/parseCSVs")
 
 app.listen(process.env.PORT || 3000, () => {
     console.log('Server is running on port 3000')

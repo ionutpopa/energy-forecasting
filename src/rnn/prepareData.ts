@@ -31,7 +31,7 @@ export const prepareData = (data: EnergyDataType[], type: EnergyType) => {
 
     // Adjust the sequenceLength parameter as needed based on the desired number of previous years to consider for prediction.
     // I will take 10 years of data to predict the next year's energy consumption.
-    const sequencesLength = 10
+    const sequencesLength = 5
     const sequences = createSequences(energyData, sequencesLength)
 
     // Step 3: Normalize the data
