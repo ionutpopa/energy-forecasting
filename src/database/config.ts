@@ -6,8 +6,7 @@ export const sequelize = new Sequelize({
     storage: "database.sqlite"
 })
 
-export const ElectricDataTable = sequelize.define("ElectricDataTable", {
-    // Model attributes are defined here
+export const ElectricityGenerationTable = sequelize.define("ElectricityGenerationTable", {
     country: {
         type: DataTypes.STRING,
         allowNull: false
@@ -16,9 +15,20 @@ export const ElectricDataTable = sequelize.define("ElectricDataTable", {
         type: DataTypes.STRING,
         allowNull: false
     },
-    consumption: {
+    generation: {
         type: DataTypes.FLOAT,
         allowNull: true
+    }
+}) as any
+
+export const ElectricityConsumptionTable = sequelize.define("ElectricityConsumptionTable", {
+    country: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    year: {
+        type: DataTypes.STRING,
+        allowNull: false
     },
     production: {
         type: DataTypes.FLOAT,
@@ -26,12 +36,48 @@ export const ElectricDataTable = sequelize.define("ElectricDataTable", {
     }
 }) as any
 
+export const WeatherDataTable = sequelize.define("WeatherDataTable", {
+    date: {
+        type: DataTypes.DATE,
+        allowNull: false
+    },
+    country: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    latitude: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+    },
+    longitude: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+    },
+    averageTemperature: {
+        type: DataTypes.FLOAT,
+        allowNull: false
+    },
+    minTemperature: {
+        type: DataTypes.FLOAT,
+        allowNull: false
+    },
+    maxTemperature: {
+        type: DataTypes.FLOAT,
+        allowNull: false
+    },
+    windSpeed: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+    },
+    pressure: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+    },
+}) as any
+
 (async () => {
     try {
         await sequelize.sync()
-        
-        // Drop the table
-        // await ElectricDataTable.drop();
 
         console.log("Database synchronized")
     } catch (error) {

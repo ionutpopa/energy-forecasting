@@ -1,12 +1,13 @@
+import { Request, Response } from "express"
 import { feedModel } from "../services"
 import logger from "../utils/formatLogs"
 
 /**
- * Function to feed model controller
+ * Controller of the function that feeds the model
  * @param req The request object
  * @param res The response object
  */
-export const feedModelController = async (req: { body: any }, res: any) => {
+export const feedModelController = async (req: Request, res: Response) => {
     try {
         const type = req.body?.type
 

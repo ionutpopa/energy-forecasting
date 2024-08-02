@@ -1,4 +1,4 @@
-import { EnergyDataType, EnergyType } from "../types/data";
+import { ElectricityGenerationDataType, ElectricityConsumptionDataType, EnergyType } from "../types/data";
 
 /**
  * This function will prepare the data for the model to consume
@@ -7,11 +7,11 @@ import { EnergyDataType, EnergyType } from "../types/data";
  * @param type 
  * @returns 
  */
-export const prepareData = (data: EnergyDataType[], type: EnergyType) => {
+export const prepareData = (data: (ElectricityGenerationDataType | ElectricityConsumptionDataType)[], type: EnergyType) => {
     // Step 1: Filter the data
 
     // Take only the data that has consumption
-    const energyData = type === 'consumption' ? data.filter((item) => item.consumption) : data.filter((item) => item.production)
+    const energyData = data
 
     // Step 2: Create Input-Output pairs
     const createSequences = (data: string | any[], sequenceLength: number) => {
@@ -43,7 +43,7 @@ export const prepareData = (data: EnergyDataType[], type: EnergyType) => {
     }
 
     // Normalize the data
-    const energyDataWithoutYears = energyData.map((item) => type === 'consumption' ? item.consumption : item.production)
+    const energyDataWithoutYears = energyData.map((item) => type === 'consumption' ? (item as ElectricityConsumptionDataType).consumption : (item as ElectricityGenerationDataType).generation)
     const normalizedData = normalizeData(energyDataWithoutYears)
 
     console.log("Input-Output pairs", sequences)
