@@ -1,5 +1,62 @@
 We save every value in float types and I am always referring to TWh
 
+Params that we take in consideration:
+- Electricity consumption (global-energy-substitution.csv)
+    - primary energy consumption (TWh): float
+    - year: int
+    - country: string
+- Electricity production (electricity-prod-source-stacked.csv)
+    - energy generation (TWh): float
+    - year: int
+    - country: string
+- Daily weather data (daily_weather_data.csv):
+    - latitude (degrees): float
+    - longitude (degrees): float
+    - tavg (average temperature, celsius): float
+    - tmin (minimum temperature, celsius): float
+    - tmax (max temperature, celsius): float
+    - wdir (wind direction, degrees): float
+    - wspd (wind speed, km/h): float
+    - pres (atmosferic pressure, hPa): float
+- CO2 emissions per capita (co-emissions-per-capita.csv)
+    - country: string
+    - year: int
+    - annual CO2 emissions per capita (tones): float
+- GDP per capita growth (gdp-per-capita-growth.csv)
+    - country
+    - year
+    - GDP per capita growth (annual %)
+- Access to electricity vs gdp per capita (access-to-electricity-vs-gdp-per-capita.csv)
+    - country
+    - year
+    - access to electricity (% of population)
+    - GDP per capita, PPP ($)
+- Population growth (population-and-demography.csv)
+    - country
+    - year
+    - population
+    - Population of children under the age of 1
+    - Population of children under the age of 5
+    - Population of children under the age of 15
+    - Population under the age of 25
+    - Population aged 15 to 64 years
+    - Population older than 15 years
+    - Population older than 18 years
+    - Population at age 1
+    - Population aged 1 to 4 years
+    - Population aged 5 to 9 years
+    - Population aged 10 to 14 years
+    - Population aged 15 to 19 years
+    - Population aged 20 to 29 years
+    - Population aged 30 to 39 years
+    - Population aged 40 to 49 years
+    - Population aged 50 to 59 years
+    - Population aged 60 to 69 years
+    - Population aged 70 to 79 years
+    - Population aged 80 to 89 years
+    - Population aged 90 to 99 years
+    - Population older than 100 years
+
 Good to know:
 - Consumption data has data until 2022
 - Production data has data until 2023
@@ -46,3 +103,6 @@ Deploy the trained LSTM model for making predictions on new, unseen data.
 Integrate the model into your Node.js application to serve predictions in real-time or on-demand.
 
 ![LSTM Network](lstm-network.png)
+
+Where I get most data from: https://ourworldindata.org/
+There is another website but guess who forgot
