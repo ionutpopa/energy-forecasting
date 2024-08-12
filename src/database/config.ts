@@ -1,9 +1,18 @@
-import { Sequelize, DataTypes } from "sequelize";
+import { Sequelize, DataTypes, ModelCtor, Model, ConnectionError, ConnectionTimedOutError, TimeoutError } from "sequelize";
 
 // Initialize Sequelize with SQLite dialect
 export const sequelize = new Sequelize({
     dialect: "sqlite",
-    storage: "database.sqlite"
+    storage: "database.sqlite",
+    retry: {
+        match: [
+            ConnectionError,
+            ConnectionTimedOutError,
+            TimeoutError,
+            /Deadlock/i,
+            'SQLITE_BUSY'],
+        max: 3
+    }
 })
 
 export const ElectricityGenerationTable = sequelize.define("ElectricityGenerationTable", {
@@ -12,14 +21,14 @@ export const ElectricityGenerationTable = sequelize.define("ElectricityGeneratio
         allowNull: false
     },
     year: {
-        type: DataTypes.STRING,
+        type: DataTypes.INTEGER,
         allowNull: false
     },
     generation: {
         type: DataTypes.FLOAT,
         allowNull: true
     }
-}) as any
+}) as ModelCtor<Model<any, any>>
 
 export const ElectricityConsumptionTable = sequelize.define("ElectricityConsumptionTable", {
     country: {
@@ -27,14 +36,14 @@ export const ElectricityConsumptionTable = sequelize.define("ElectricityConsumpt
         allowNull: false
     },
     year: {
-        type: DataTypes.STRING,
+        type: DataTypes.INTEGER,
         allowNull: false
     },
     production: {
         type: DataTypes.FLOAT,
         allowNull: true
     }
-}) as any
+}) as ModelCtor<Model<any, any>>
 
 export const WeatherDataTable = sequelize.define("WeatherDataTable", {
     date: {
@@ -73,9 +82,54 @@ export const WeatherDataTable = sequelize.define("WeatherDataTable", {
         type: DataTypes.FLOAT,
         allowNull: true
     },
-}) as any
+}) as ModelCtor<Model<any, any>>
 
-(async () => {
+export const GdpPerCapitaGrowthTable = sequelize.define("GdpPerCapitaGrowthTable", {
+    country: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    year: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    gdpPerCapitaGrowth: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+    }
+}) as ModelCtor<Model<any, any>>
+
+export const PopulationGrowthTable = sequelize.define("PopulationGrowthTable", {
+    country: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    year: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    population: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+    }
+}) as ModelCtor<Model<any, any>>
+
+export const CO2EmissionsTable = sequelize.define("CO2EmissionsTable", {
+    country: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    year: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    co2Emissions: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+    }
+}) as ModelCtor<Model<any, any>>
+
+export const connectDb = async () => {
     try {
         await sequelize.sync()
 
@@ -86,4 +140,4 @@ export const WeatherDataTable = sequelize.define("WeatherDataTable", {
         // await sequelize.close()
         console.log("Database connection closed")
     }
-})()
+}
