@@ -10,8 +10,9 @@ export const sequelize = new Sequelize({
             ConnectionTimedOutError,
             TimeoutError,
             /Deadlock/i,
-            'SQLITE_BUSY'],
-        max: 3
+            'SQLITE_BUSY'
+        ],
+        max: 10
     }
 })
 
