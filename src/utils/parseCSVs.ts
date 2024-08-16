@@ -1,6 +1,13 @@
-import fs from "fs";
-import readline from "readline";
-import { addData } from "../database/addData";
+import { Model, ModelCtor } from "sequelize";
+import { 
+  ElectricityConsumptionTable,
+  ElectricityGenerationTable,
+  WeatherDataTable,
+  GdpPerCapitaGrowthTable,
+  PopulationGrowthTable,
+  CO2EmissionsTable,
+  sequelize
+} from "../database/config";
 import { createDynamicRL } from "./createDynamicRL";
 
 // Energy consumption in the world file path
@@ -17,14 +24,7 @@ const populationFilePath = "population-and-demography.csv";
 // in population-and-demography.csv: skip contains("(UN)") || contains("High-income countries") || contains("Low-income countries")
 const co2EmissionsFilePath = "co2-emissions-per-capita.csv";
 
-// // We will use the readline module to read the file line by line
-// const rl1 = readline.createInterface({
-//     input: fs.createReadStream(firstFilePath),
-//     output: process.stdout,
-//     terminal: false
-// })
-
-// Array to store parsed CSV data
+// Arrays to store parsed CSV data
 const consumptionData: string[][] = [];
 let isConsumptionDataReady = false;
 
@@ -42,77 +42,6 @@ let isPopulationDataReady = false;
 
 const co2EmissionsData: string[][] = [];
 let isCo2EmissionsDataReady = false;
-
-// // Event listener for eac line read from the CSV file
-// rl1.on("line", (line) => {
-//     // Split the line by comma to get individual values
-//     const values = line.split(",")
-
-//     // Add values to the csvData array
-//     consumptionData.push(values)
-// })
-
-// // Event listener for the end of the file
-// rl1.on("close", () => {
-//     const rl2 = readline.createInterface({
-//         input: fs.createReadStream(secondFilePath),
-//         output: process.stdout,
-//         terminal: false
-//     })
-
-//     rl2.on("line", (line) => {
-//         // Split the line by comma to get individual values
-//         const values = line.split(",")
-
-//         const removeCommasValues = values.map((value) => value?.replace(/;/g, ""))
-
-//         // Add values to the csvData array
-//         productionData.push(removeCommasValues)
-//     })
-
-//     rl2.on("close", () => {
-//         const transformedConsumptionData = transformResponse(consumptionData, 'consumption')
-//         const transformedProductionData =  transformResponse(productionData, 'production')
-
-//         const rl3 = readline.createInterface({
-//             input: fs.createReadStream(thirdFilePath),
-//             output: process.stdout,
-//             terminal: false
-//         })
-
-//         rl3.on("line", (line) => {
-//             // Split the line by comma to get individual values
-//             const values = line.split(",")
-
-//             console.log(values)
-
-//             // Add values to the csvData array
-//             weatherData.push(values)
-//         })
-
-//         // Store the transformed data in the database
-//         for (let i = 0; i < transformedConsumptionData?.length; i++) {
-//             const data = transformedConsumptionData[i]
-//             // Store the data in the database
-//             // addData(
-//             //     data.country,
-//             //     data.year,
-//             //     data.consumption,
-//             // )
-//         }
-
-//         for (let i = 0; i < transformedProductionData?.length; i++) {
-//             const data = transformedProductionData[i]
-//             // Store the data in the database
-//             // addData(
-//             //     data.country,
-//             //     data.year,
-//             //     undefined,
-//             //     data.production
-//             // )
-//         }
-//     })
-// })
 
 const filterValue = (value: string) => {
   if (
@@ -166,6 +95,52 @@ const filterValues = (line: string) => {
   return filteredValues
 };
 
+const createIfNotExists = async (table: ModelCtor<Model<any, any>>, dataArray: any, maxRetries = Number(process.env.MAX_RETRIES) || 10, baseDelay = 100) => {
+  let attempt = 0;
+
+  while (attempt < maxRetries) {
+    try {
+      for (const data of dataArray) {
+        const whereObj: any = {}
+
+        if (table.name === "WeatherDataTable"){
+          whereObj.date = data.date
+        } else {
+          whereObj.year = data.year
+        }
+
+        const existingRecord = await table.findOne({
+            where: whereObj,
+        });
+
+        if (!existingRecord) {
+            try {
+              await table.create(data);
+              console.log('Data inserted:', data);
+            } catch (error) {
+              throw error; // Throw other errors
+            }
+        } else {
+            console.log('Skipped (already exists):', existingRecord.toJSON());
+        }
+      }
+    } catch (error: any) {
+        if (error?.parent?.code === 'SQLITE_BUSY') {
+            attempt++;
+            const delay = baseDelay * Math.pow(2, attempt - 1);
+            console.log(`Database is busy. Retrying in ${delay}ms... (Attempt ${attempt}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+            // Throw other errors that aren't SQLITE_BUSY
+            console.error('Error in bulk check/insert:', error);
+            throw error;
+        }
+    }
+  }
+
+  throw new Error('Failed to insert data after maximum retries due to SQLITE_BUSY');
+}
+
 const callbackForLineForConsumptionData = (line: string) => {
   const filteredValues = filterValues(line)
 
@@ -208,31 +183,6 @@ const callbackForLineForCo2EmissionsData = (line: string) => {
   co2EmissionsData.push(filteredValues)
 }
 
-const callbackForClose = () => {
-  // const transformedConsumptionData = transformResponse(consumptionData, 'consumption')
-  // const transformedProductionData =  transformResponse(productionData, 'production')
-  // Store the transformed data in the database
-  // for (let i = 0; i < transformedConsumptionData?.length; i++) {
-  //     const data = transformedConsumptionData[i]
-  //     // Store the data in the database
-  //     // addData(
-  //     //     data.country,
-  //     //     data.year,
-  //     //     data.consumption,
-  //     // )
-  // }
-  // for (let i = 0; i < transformedProductionData?.length; i++) {
-  //     const data = transformedProductionData[i]
-  //     // Store the data in the database
-  //     // addData(
-  //     //     data.country,
-  //     //     data.year,
-  //     //     undefined,
-  //     //     data.production
-  //     // )
-  // }
-};
-
 const callbackForCloseForConsumptionData = () => {
   const arrayToStoreTransformedData = []
 
@@ -240,18 +190,21 @@ const callbackForCloseForConsumptionData = () => {
   consumptionData.shift()
 
   for (let i = 0; i < consumptionData?.length; i++) {
-    for (let j = 0; j < consumptionData[i]?.length; j++) {
-      const obj = {
-        country: consumptionData[i]?.[0],
-        year: consumptionData[i]?.[1],
-        consumption: consumptionData[i]?.[2]
-      }
-
-      arrayToStoreTransformedData.push(obj)
+    if (parseInt(consumptionData[i]?.[0])) continue
+    if (!parseInt(consumptionData[i]?.[1])) continue
+    const obj = {
+      country: consumptionData[i]?.[0],
+      year: consumptionData[i]?.[1],
+      consumption: consumptionData[i]?.[2]
     }
+
+    arrayToStoreTransformedData.push(obj)
   }
 
-  // console.log(arrayToStoreTransformedData)
+  if (arrayToStoreTransformedData.length) {
+    // Store data in database
+    createIfNotExists(ElectricityConsumptionTable, arrayToStoreTransformedData)
+  }
 }
 
 const callbackForCloseForProductionData = () => {
@@ -261,18 +214,21 @@ const callbackForCloseForProductionData = () => {
   productionData.shift()
 
   for (let i = 0; i < productionData?.length; i++) {
-    for (let j = 0; j < productionData[i]?.length; j++) {
-      const obj = {
-        country: productionData[i]?.[0],
-        year: productionData[i]?.[1],
-        consumption: productionData[i]?.[2]
-      }
-
-      arrayToStoreTransformedData.push(obj)
+    if (parseInt(productionData[i]?.[0])) continue
+    if (!parseInt(productionData[i]?.[1])) continue
+    const obj = {
+      country: productionData[i]?.[0],
+      year: productionData[i]?.[1],
+      consumption: productionData[i]?.[2]
     }
+
+    arrayToStoreTransformedData.push(obj)
   }
 
-  // console.log(arrayToStoreTransformedData)
+  if (arrayToStoreTransformedData.length) {
+    // Store data in database
+    createIfNotExists(ElectricityGenerationTable, arrayToStoreTransformedData)
+  }
 }
 
 const callbackForCloseWeatherData = () => {
@@ -282,64 +238,116 @@ const callbackForCloseWeatherData = () => {
   weatherData.shift()
 
   for (let i = 0; i < weatherData?.length; i++) {
-    for (let j = 0; j < weatherData[i]?.length; j++) {
-      const date = weatherData?.[i]?.[0]; // 'e.g.: 22-05-2020'
-      const country = weatherData?.[i]?.[1];
-      const latitude = weatherData?.[i]?.[2];
-      const longitude = weatherData?.[i]?.[3];
-      const averageTemperature = weatherData?.[i]?.[4];
-      const minTemperature = weatherData?.[i]?.[5];
-      const maxTemperature = weatherData?.[i]?.[6];
-      // const windDirection = weatherData?.[i]?.[7];
-      const windSpeed = weatherData?.[i]?.[8];
-      const pressure = weatherData?.[i]?.[9]; // hectopascal hPa
-      
-      const weatherDataObj = {
-        date,
-        country,
-        latitude,
-        longitude,
-        averageTemperature,
-        minTemperature,
-        maxTemperature,
-        windSpeed,
-        pressure
-      }
-
-      arrayToStoreTransformedData.push(weatherDataObj)
+    if (parseInt(weatherData[i]?.[1])) continue
+    if (!isNaN(new Date(weatherData[i]?.[0]).getTime())) continue
+    const date = weatherData?.[i]?.[0]; // 'e.g.: 22-05-2020'
+    const country = weatherData?.[i]?.[1];
+    const latitude = weatherData?.[i]?.[2];
+    const longitude = weatherData?.[i]?.[3];
+    const averageTemperature = weatherData?.[i]?.[4];
+    const minTemperature = weatherData?.[i]?.[5];
+    const maxTemperature = weatherData?.[i]?.[6];
+    // const windDirection = weatherData?.[i]?.[7];
+    const windSpeed = weatherData?.[i]?.[8];
+    const pressure = weatherData?.[i]?.[9]; // hectopascal hPa
+    
+    const weatherDataObj = {
+      date,
+      country,
+      latitude: Number(latitude),
+      longitude: Number(longitude),
+      averageTemperature: Number(averageTemperature),
+      minTemperature: Number(minTemperature),
+      maxTemperature: Number(maxTemperature),
+      windSpeed: Number(windSpeed),
+      pressure: Number(pressure)
     }
+
+    arrayToStoreTransformedData.push(weatherDataObj)
   }
 
-  console.log(arrayToStoreTransformedData)
+  if (arrayToStoreTransformedData.length) {
+    // Store data in database
+    createIfNotExists(WeatherDataTable, arrayToStoreTransformedData)
+  }
 }
 
-const consumptionRL = createDynamicRL(
-  energyConsumptionFilePath,
-  callbackForLineForConsumptionData,
-  callbackForCloseForConsumptionData
-);
-const productionRL = createDynamicRL(
-  energyProductionFilePath,
-  callbackForLineForProductionData,
-  callbackForCloseForProductionData
-);
-const weatherRL = createDynamicRL(
-  dailyWeatherFilePath,
-  callbackForLineForWeatherData,
-  callbackForCloseWeatherData
-);
-// const gdpPerCapitaRL = createDynamicRL(
-//   gdpPerCapitaFilePath,
-//   callbackForLineForGDPData,
-//   callbackForClose
-// );
-// const populationGrowthRL = createDynamicRL(
-//   populationFilePath,
-//   callbackForLineForPopulationData,
-//   callbackForClose
-// );
-// const CO2EmissionsRL = createDynamicRL(
-//   co2EmissionsFilePath,
-//   callbackForLineForCo2EmissionsData,
-//   callbackForClose
-// );
+const callbackForCloseForGdpPerCapitaData = () => {
+  const arrayToStoreTransformedData = []
+
+  // Remove first array because that's the row with the column names
+  gdpData.shift()
+
+  for (let i = 0; i < gdpData?.length; i++) {
+    if (parseInt(gdpData[i]?.[0])) continue
+    if (!parseInt(gdpData[i]?.[1])) continue
+    const obj = {
+      country: gdpData[i]?.[0],
+      year: Number(gdpData[i]?.[1]),
+      gdpPerCapitaGrowth: Number(gdpData[i]?.[2]) // annual %
+    }
+
+    arrayToStoreTransformedData.push(obj)
+  }
+
+  if (arrayToStoreTransformedData.length) {
+    // Store data in database
+    createIfNotExists(GdpPerCapitaGrowthTable, arrayToStoreTransformedData)
+  }
+}
+
+const callbackForCloseForPopulationGrowth = () => {
+  const arrayToStoreTransformedData = []
+
+  // Remove first array because that's the row with the column names
+  populationData.shift()
+
+  for (let i = 0; i < populationData?.length; i++) {
+    if (parseInt(populationData[i]?.[0])) continue
+    if (!parseInt(populationData[i]?.[1])) continue
+    const obj = {
+      country: populationData[i]?.[0],
+      year: Number(populationData[i]?.[1]),
+      population: Number(populationData[i]?.[2]) // annual %
+    }
+
+    arrayToStoreTransformedData.push(obj)
+  }
+
+  if (arrayToStoreTransformedData.length) {
+    // Store data in database
+    createIfNotExists(PopulationGrowthTable, arrayToStoreTransformedData)
+  }
+}
+
+const callbackForCloseForCO2Emission = () => {
+  const arrayToStoreTransformedData = []
+
+  // Remove first array because that's the row with the column names
+  co2EmissionsData.shift()
+
+  for (let i = 0; i < co2EmissionsData?.length; i++) {
+    if (parseInt(co2EmissionsData[i]?.[0])) continue
+    if (!parseInt(co2EmissionsData[i]?.[1])) continue
+    const obj = {
+      country: co2EmissionsData[i]?.[0],
+      year: Number(co2EmissionsData[i]?.[1]),
+      co2Emissions: Number(co2EmissionsData[i]?.[2]) // per capita (per person)
+    }
+
+    arrayToStoreTransformedData.push(obj)
+  }
+
+  if (arrayToStoreTransformedData.length) {
+    // Store data in database
+    createIfNotExists(CO2EmissionsTable, arrayToStoreTransformedData)
+  }
+}
+
+// We will use the readline module to read the file line by line and add it to the database
+createDynamicRL(energyConsumptionFilePath, callbackForLineForConsumptionData, callbackForCloseForConsumptionData);
+createDynamicRL(energyProductionFilePath, callbackForLineForProductionData, callbackForCloseForProductionData);
+createDynamicRL(dailyWeatherFilePath, callbackForLineForWeatherData, callbackForCloseWeatherData);
+createDynamicRL(gdpPerCapitaFilePath, callbackForLineForGDPData, callbackForCloseForGdpPerCapitaData);
+createDynamicRL(populationFilePath, callbackForLineForPopulationData, callbackForCloseForPopulationGrowth);
+createDynamicRL(co2EmissionsFilePath, callbackForLineForCo2EmissionsData, callbackForCloseForCO2Emission);
