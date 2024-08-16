@@ -1,33 +1,29 @@
 import { getData } from "../database/getData";
 import { prepareData } from "../rnn/prepareData";
-import { ElectricityGenerationDataType, ElectricityConsumptionDataType, EnergyType } from "../types/data";
+import { DataTypeEnum, DataType } from "../types/data";
 import logger from "../utils/formatLogs"
 
 /**
  * This function will feed the model with the latest data
  */
-export const feedModel = async (type: EnergyType) => {
+export const feedModel = async (typeOfData: DataTypeEnum) => {
     try {
-        const dataToFeed: (ElectricityGenerationDataType | ElectricityConsumptionDataType)[] = [];
+        const dataToFeed: DataType[] = [];
 
-        switch (type) {
-            case 'consumption':
-                const consumptionData = await getData(true, false)
-                dataToFeed.push(...consumptionData)
-                break;
-            case 'production':
-                const productionData = await getData(false, true)
-                dataToFeed.push(...productionData)
-                break;
-            default:
-                break;
+        const feedingData = await getData(typeOfData)
+
+        if (!feedingData)  {
+            logger("No data to feed")
+            return
         }
 
-        // console.log("dataToFeed", dataToFeed?.length)
+        dataToFeed.push(...feedingData)
 
-        const prepearedData = prepareData(dataToFeed, type)
+        const prepearedData = prepareData(dataToFeed)
 
-        return dataToFeed
+        // TODO: Actually feed the model here
+
+        return prepearedData
     } catch (error) {
         console.error(error)
         // logger(JSON.stringify(error), "error")
