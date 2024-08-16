@@ -61,10 +61,7 @@ Good to know:
 - Consumption data has data until 2022
 - Production data has data until 2023
 
-Docker:
-- Build docker image: docker build -t energy-consumption-forecasting .
-- Run docker image: docker run -p 3000:3000 energy-consumption-forecasting
-- Application will be available via http://localhost:3000
+Docker: docker-compose up -d
 
 Docker issues: I am getting ELF error and honestly I don't want to fix that yet, if someone can help with that I'll review it
 
