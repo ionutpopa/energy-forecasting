@@ -12,7 +12,7 @@ export const sequelize = new Sequelize({
             /Deadlock/i,
             'SQLITE_BUSY'
         ],
-        max: 10
+        max: Number(process.env.MAX_RETRIES) || 10
     }
 })
 
