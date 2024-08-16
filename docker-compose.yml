@@ -1,0 +1,12 @@
+services:
+  energy-forecasting:
+    image: node:latest
+    volumes:
+      - .:/usr/src/energy-forecasting
+      - /usr/src/energy-forecasting/node_modules
+      - ./data:/usr/src/energy-forecasting/data
+    ports:
+      - 3000:3000
+    command: yarn start
+    environment:
+      - MAX_RETRIES = 10
