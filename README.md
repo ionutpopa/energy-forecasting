@@ -68,6 +68,13 @@ Docker:
 
 Docker issues: I am getting ELF error and honestly I don't want to fix that yet, if someone can help with that I'll review it
 
+We are going to build 3 models:
+1. Linear Regression.
+2. RNN.
+3. Still thinking what should I do here, let me know if you have any ideas
+
+And then we are going to compare the 3 models.
+
 Information about an RNN (Recurent Neural Network)
 
 The basic structure of RNNs can be broken down into:
@@ -79,10 +86,9 @@ Output Layer: The output layer of an RNN produces the desired output or predicti
 
 Years of data:
 For consumption: 76 years
-For production: 77
+For production: 77 years
 
-We are building a LSTM (Long-Short Term Memory) Model
-
+LSTM (Long-Short Term Memory) Model:
 - Step 1: Data Preparation
 Prepare your energy consumption data in a suitable format, typically as a time series dataset with timestamps and corresponding consumption values.
 Normalize the data to scale it between 0 and 1, which can help improve training convergence and performance.
@@ -106,3 +112,7 @@ Integrate the model into your Node.js application to serve predictions in real-t
 
 Where I get most data from: https://ourworldindata.org/
 There is another website but guess who forgot
+
+docker run -it --rm -p 8888:8888 tensorflow/tensorflow:latest
+
+Linear Regression
