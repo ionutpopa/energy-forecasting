@@ -1,4 +1,4 @@
-import { ElectricityGenerationDataType, ElectricityConsumptionDataType, EnergyType } from "../types/data";
+import { ElectricityGenerationDataType, ElectricityConsumptionDataType, WeatherDataType } from "../types/data";
 
 /**
  * This function will prepare the data for the model to consume
@@ -7,7 +7,7 @@ import { ElectricityGenerationDataType, ElectricityConsumptionDataType, EnergyTy
  * @param type 
  * @returns 
  */
-export const prepareData = (data: (ElectricityGenerationDataType | ElectricityConsumptionDataType)[], type: EnergyType) => {
+export const prepareData = (data: (ElectricityGenerationDataType | ElectricityConsumptionDataType | WeatherDataType)[]) => {
     // Step 1: Filter the data
 
     // Take only the data that has consumption
@@ -30,7 +30,7 @@ export const prepareData = (data: (ElectricityGenerationDataType | ElectricityCo
     }
 
     // Adjust the sequenceLength parameter as needed based on the desired number of previous years to consider for prediction.
-    // I will take 10 years of data to predict the next year's energy consumption.
+    // I will take 5 years of data to predict the next year's energy consumption.
     const sequencesLength = 5
     const sequences = createSequences(energyData, sequencesLength)
 
@@ -43,8 +43,7 @@ export const prepareData = (data: (ElectricityGenerationDataType | ElectricityCo
     }
 
     // Normalize the data
-    const energyDataWithoutYears = energyData.map((item) => type === 'consumption' ? (item as ElectricityConsumptionDataType).consumption : (item as ElectricityGenerationDataType).generation)
-    const normalizedData = normalizeData(energyDataWithoutYears)
+    const normalizedData = normalizeData(energyData)
 
     console.log("Input-Output pairs", sequences)
     console.log("Normalized Data", normalizedData)
