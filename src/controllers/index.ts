@@ -1,6 +1,7 @@
 import { Request, Response } from "express"
 import { feedModel } from "../services"
 import logger from "../utils/formatLogs"
+import { DataTypeEnum } from "../types/data"
 
 /**
  * Controller of the function that feeds the model
@@ -9,7 +10,7 @@ import logger from "../utils/formatLogs"
  */
 export const feedModelController = async (req: Request, res: Response) => {
     try {
-        const type = req.body?.type
+        const type = req.body?.type as DataTypeEnum
 
         if (!type) {
             return res.status(400).send({
