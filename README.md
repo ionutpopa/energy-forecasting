@@ -113,3 +113,5 @@ There is another website but guess who forgot
 docker run -it --rm -p 8888:8888 tensorflow/tensorflow:latest
 
 Linear Regression
+
+Sigmoid
