@@ -3,17 +3,18 @@ import cors from 'cors'
 // @ts-ignore
 import cron from 'node-cron'
 import router from './routes'
-import { CO2EmissionsTable, connectDb, ElectricityConsumptionTable, ElectricityGenerationTable, GdpPerCapitaGrowthTable, PopulationGrowthTable, WeatherDataTable } from './database/config'
+import { CO2EmissionsTable, connectDb, deleteSpecificTable, dropAllTables, ElectricityConsumptionTable, ElectricityGenerationTable, GdpPerCapitaGrowthTable, PopulationGrowthTable, WeatherDataTable } from './database/config'
 import logger from './utils/formatLogs'
-import { buildModel } from './linear-regression/build-model'
+import * as tf from "@tensorflow/tfjs"
+import { trainModelsBasedOnTableName } from './training/lr-train-model-based-on-name'
 
 const args = process.argv?.slice(2); // Get command-line arguments, excluding 'node' and the script name
 
 // Check if the 'debug' argument is present
 const debugMode = args?.includes('debug');
 const parseAllData = args?.includes('parse-all-data');
-const trainMode = args?.includes('train');
-const buildMode = args?.includes('build-model')
+const trainMode = args?.includes('build-and-train');
+const dropTablesMode = args?.includes('drop-all')
 
 const app = express()
 app.use(cors())
@@ -25,20 +26,11 @@ const start = async () => {
     // Import the database configuration
     await connectDb();
 
-    // buildMode will build all the models, this as well should be ran only once
-    // atm, we will only build the linear regression model
-    if (buildMode) {
-        buildModel(WeatherDataTable.tableName)
-        buildModel(ElectricityConsumptionTable.tableName)
-        buildModel(ElectricityGenerationTable.tableName)
-        buildModel(WeatherDataTable.tableName)
-        buildModel(GdpPerCapitaGrowthTable.tableName)
-        buildModel(PopulationGrowthTable.tableName)
-        buildModel(CO2EmissionsTable.tableName)
-    }
+    const allTables = [ElectricityConsumptionTable, ElectricityGenerationTable, WeatherDataTable, GdpPerCapitaGrowthTable, PopulationGrowthTable, CO2EmissionsTable]
 
-    if (trainMode) {
-
+    if (dropTablesMode) {
+        // await deleteSpecificTable("ElectricDataTables")
+        await dropAllTables()
     }
 
     if (debugMode) {
@@ -48,6 +40,37 @@ const start = async () => {
     if (parseAllData) {
         // Start the csv parsing, only run this once on your local machine
         require("./utils/parseCSVs")
+    }
+
+    // buildMode will build all the models, this as well should be ran only once
+    // atm, we will only build the linear regression model
+    // if (buildMode) {
+    //     const initModels = [
+    //         buildModel(ElectricityConsumptionTable.tableName),
+    //         buildModel(ElectricityGenerationTable.tableName),
+    //         buildModel(WeatherDataTable.tableName),
+    //         buildModel(GdpPerCapitaGrowthTable.tableName),
+    //         buildModel(PopulationGrowthTable.tableName),
+    //         buildModel(CO2EmissionsTable.tableName)
+    //     ]
+
+    //     initModels.forEach((model) => models.push(model))
+    // }
+
+    if (trainMode) {
+        if (allTables.length) {
+            for (const table of allTables) {
+                const finishedTraining = await trainModelsBasedOnTableName(table)
+
+                if (finishedTraining) {
+                    // predict
+                    const cwd = process.cwd()
+                    const loadedModel = await tf.loadLayersModel(`${cwd}/consumption-model`);
+                }
+            }
+        } else {
+            logger("No tables initialized to train", "warning")
+        }
     }
 }
 

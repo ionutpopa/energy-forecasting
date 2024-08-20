@@ -1,4 +1,5 @@
 import { Sequelize, DataTypes, ModelCtor, Model, ConnectionError, ConnectionTimedOutError, TimeoutError } from "sequelize";
+import logger from "../utils/formatLogs";
 
 // Initialize Sequelize with SQLite dialect
 export const sequelize = new Sequelize({
@@ -40,7 +41,7 @@ export const ElectricityConsumptionTable = sequelize.define("ElectricityConsumpt
         type: DataTypes.INTEGER,
         allowNull: false
     },
-    production: {
+    consumption: {
         type: DataTypes.FLOAT,
         allowNull: true
     }
@@ -140,5 +141,27 @@ export const connectDb = async () => {
     } finally {
         // await sequelize.close()
         console.log("Database connection closed")
+    }
+}
+
+export const dropAllTables = async () => {
+    try {
+        await sequelize.drop(); // Drops all tables
+        logger("All tables dropped!");
+    } catch (error) {
+        logger("An error occurred while dropping tables:");
+        logger(JSON.stringify(error, null, 2), 'error');
+    }
+};
+
+export const deleteSpecificTable = async (tableName: string) => {
+    const queryInterface = sequelize.getQueryInterface();
+    const tables = await queryInterface.showAllTables();
+
+    const table = tables.find((t) => t === tableName)
+
+    if (table) {
+        await queryInterface.dropTable(table)
+        logger(`Dropped ${table} succesfully`)
     }
 }

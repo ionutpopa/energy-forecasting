@@ -9,6 +9,7 @@ import {
   sequelize
 } from "../database/config";
 import { createDynamicRL } from "./createDynamicRL";
+import logger from "./formatLogs";
 
 // Energy consumption in the world file path
 const energyConsumptionFilePath = "primary-energy-cons.csv";
@@ -183,15 +184,15 @@ const callbackForLineForCo2EmissionsData = (line: string) => {
   co2EmissionsData.push(filteredValues)
 }
 
-const callbackForCloseForConsumptionData = () => {
+const callbackForCloseForConsumptionData = async () => {
   const arrayToStoreTransformedData = []
 
   // Remove first array because that's the row with the column names
   consumptionData.shift()
 
   for (let i = 0; i < consumptionData?.length; i++) {
-    if (parseInt(consumptionData[i]?.[0])) continue
-    if (!parseInt(consumptionData[i]?.[1])) continue
+    if (!consumptionData[i]?.[0] || !String(consumptionData[i]?.[0])) continue
+    if (isNaN(parseInt(consumptionData[i]?.[1]))) continue
     const obj = {
       country: consumptionData[i]?.[0],
       year: consumptionData[i]?.[1],
@@ -203,23 +204,26 @@ const callbackForCloseForConsumptionData = () => {
 
   if (arrayToStoreTransformedData.length) {
     // Store data in database
-    createIfNotExists(ElectricityConsumptionTable, arrayToStoreTransformedData)
+    await ElectricityConsumptionTable.bulkCreate(arrayToStoreTransformedData, {
+      updateOnDuplicate: ['year']
+    });
+    logger("Electricity Consuption Table Populated!")
   }
 }
 
-const callbackForCloseForProductionData = () => {
+const callbackForCloseForProductionData = async () => {
   const arrayToStoreTransformedData = []
 
   // Remove first array because that's the row with the column names
   productionData.shift()
 
   for (let i = 0; i < productionData?.length; i++) {
-    if (parseInt(productionData[i]?.[0])) continue
-    if (!parseInt(productionData[i]?.[1])) continue
+    if (!productionData[i]?.[0] || !String(productionData[i]?.[0])) continue
+    if (isNaN(parseInt(productionData[i]?.[1]))) continue
     const obj = {
       country: productionData[i]?.[0],
       year: productionData[i]?.[1],
-      consumption: productionData[i]?.[2]
+      generation: productionData[i]?.[2]
     }
 
     arrayToStoreTransformedData.push(obj)
@@ -227,19 +231,23 @@ const callbackForCloseForProductionData = () => {
 
   if (arrayToStoreTransformedData.length) {
     // Store data in database
-    createIfNotExists(ElectricityGenerationTable, arrayToStoreTransformedData)
+    await ElectricityGenerationTable.bulkCreate(arrayToStoreTransformedData, {
+      updateOnDuplicate: ['year']
+    });
+    logger("Electricity Production Table Populated!")
   }
 }
 
-const callbackForCloseWeatherData = () => {
+const callbackForCloseWeatherData = async () => {
   const arrayToStoreTransformedData = []
 
   // Remove first array because that's the row with the column names
   weatherData.shift()
 
   for (let i = 0; i < weatherData?.length; i++) {
-    if (parseInt(weatherData[i]?.[1])) continue
-    if (!isNaN(new Date(weatherData[i]?.[0]).getTime())) continue
+    if (isNaN(new Date(weatherData[i]?.[0]).getTime())) continue
+    if (isNaN(Number(weatherData?.[i]?.[4]))) continue
+
     const date = weatherData?.[i]?.[0]; // 'e.g.: 22-05-2020'
     const country = weatherData?.[i]?.[1];
     const latitude = weatherData?.[i]?.[2];
@@ -268,19 +276,22 @@ const callbackForCloseWeatherData = () => {
 
   if (arrayToStoreTransformedData.length) {
     // Store data in database
-    createIfNotExists(WeatherDataTable, arrayToStoreTransformedData)
+    WeatherDataTable.bulkCreate(arrayToStoreTransformedData, {
+      updateOnDuplicate: ['date', 'country']
+    })
+    logger("Weather Table Populated!")
   }
 }
 
-const callbackForCloseForGdpPerCapitaData = () => {
+const callbackForCloseForGdpPerCapitaData = async () => {
   const arrayToStoreTransformedData = []
 
   // Remove first array because that's the row with the column names
   gdpData.shift()
 
   for (let i = 0; i < gdpData?.length; i++) {
-    if (parseInt(gdpData[i]?.[0])) continue
-    if (!parseInt(gdpData[i]?.[1])) continue
+    if (!gdpData[i]?.[0]) continue
+    if (isNaN(parseInt(gdpData[i]?.[1]))) continue
     const obj = {
       country: gdpData[i]?.[0],
       year: Number(gdpData[i]?.[1]),
@@ -292,11 +303,14 @@ const callbackForCloseForGdpPerCapitaData = () => {
 
   if (arrayToStoreTransformedData.length) {
     // Store data in database
-    createIfNotExists(GdpPerCapitaGrowthTable, arrayToStoreTransformedData)
+    await GdpPerCapitaGrowthTable.bulkCreate(arrayToStoreTransformedData, {
+      updateOnDuplicate: ['year']
+    })
+    logger("Gdp Per Capita Growth Table Populated!")
   }
 }
 
-const callbackForCloseForPopulationGrowth = () => {
+const callbackForCloseForPopulationGrowth = async () => {
   const arrayToStoreTransformedData = []
 
   // Remove first array because that's the row with the column names
@@ -304,7 +318,7 @@ const callbackForCloseForPopulationGrowth = () => {
 
   for (let i = 0; i < populationData?.length; i++) {
     if (parseInt(populationData[i]?.[0])) continue
-    if (!parseInt(populationData[i]?.[1])) continue
+    if (isNaN(parseInt(populationData[i]?.[1]))) continue
     const obj = {
       country: populationData[i]?.[0],
       year: Number(populationData[i]?.[1]),
@@ -316,11 +330,14 @@ const callbackForCloseForPopulationGrowth = () => {
 
   if (arrayToStoreTransformedData.length) {
     // Store data in database
-    createIfNotExists(PopulationGrowthTable, arrayToStoreTransformedData)
+    await PopulationGrowthTable.bulkCreate(arrayToStoreTransformedData, {
+      updateOnDuplicate: ['year']
+    })
+    logger("Population Growth Table Populated!")
   }
 }
 
-const callbackForCloseForCO2Emission = () => {
+const callbackForCloseForCO2Emission = async () => {
   const arrayToStoreTransformedData = []
 
   // Remove first array because that's the row with the column names
@@ -328,7 +345,7 @@ const callbackForCloseForCO2Emission = () => {
 
   for (let i = 0; i < co2EmissionsData?.length; i++) {
     if (parseInt(co2EmissionsData[i]?.[0])) continue
-    if (!parseInt(co2EmissionsData[i]?.[1])) continue
+    if (isNaN(parseInt(co2EmissionsData[i]?.[1]))) continue
     const obj = {
       country: co2EmissionsData[i]?.[0],
       year: Number(co2EmissionsData[i]?.[1]),
@@ -340,7 +357,10 @@ const callbackForCloseForCO2Emission = () => {
 
   if (arrayToStoreTransformedData.length) {
     // Store data in database
-    createIfNotExists(CO2EmissionsTable, arrayToStoreTransformedData)
+    await CO2EmissionsTable.bulkCreate(arrayToStoreTransformedData, {
+      updateOnDuplicate: ['year']
+    })
+    logger("CO2 Emissions Table Populated!")
   }
 }
 

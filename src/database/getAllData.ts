@@ -5,20 +5,20 @@ import {
 import logger from "../utils/formatLogs";
 import { getTable } from "../utils/getTable";
 
-type GetAllDataReturn = {
+type GetDataReturn = {
     data: DataType[];
     totalRecords: number;
     currentPage: number;
     totalPages: number;
 }
 
-export const getAllData: (typeOfData: DataTypeEnum, page?: number, pageSize?: number, year?: number, sortOrder?: string) => Promise<(GetAllDataReturn | undefined)> = async (typeOfData: DataTypeEnum, page = 1, pageSize = 10, year = undefined, sortOrder = 'ASC') => {
+export const getData: (typeOfData: DataTypeEnum, page?: number, pageSize?: number, year?: number, sortOrder?: string) => Promise<(GetDataReturn | undefined)> = async (typeOfData: DataTypeEnum, page = 1, pageSize = 10, year = undefined, sortOrder = 'ASC') => {
     const table = getTable(typeOfData);
 
     const offset = (page - 1) * pageSize;
     const whereCondition: any = {};
 
-    if (year !== null) {
+    if (year) {
         whereCondition.year = year;
     }
 
@@ -30,7 +30,7 @@ export const getAllData: (typeOfData: DataTypeEnum, page?: number, pageSize?: nu
     try {
         const findData = await table.findAndCountAll({
             where: whereCondition,
-            order: [['year', sortOrder]],
+            order: [[table.name === "WeatherDataTables" ? "date" : 'year', sortOrder]],
             limit: pageSize,
             offset: offset,
         })
@@ -48,3 +48,40 @@ export const getAllData: (typeOfData: DataTypeEnum, page?: number, pageSize?: nu
         return undefined
     }
 }
+
+export const getAllData = async (
+    typeOfData: DataTypeEnum,
+    page = 1,
+    pageSize = 10,
+    year?: number,
+    sortOrder = 'ASC'
+): Promise<GetDataReturn | undefined> => {
+    try {
+        // Call the original getData function
+        const result = await getData(typeOfData, page, pageSize, year, sortOrder);
+        
+        if (!result) {
+            return undefined;
+        }
+
+        const { data, totalPages } = result;
+
+        // If we haven't fetched all the pages yet, recursively fetch the next page
+        if (page < totalPages) {
+            const nextPageData = await getAllData(typeOfData, page + 1, pageSize, year, sortOrder);
+            if (nextPageData && nextPageData.data) {
+                // Merge current page data with data from subsequent pages
+                return {
+                    ...result,
+                    data: [...data, ...nextPageData.data],
+                };
+            }
+        }
+
+        // If this is the last page, return the accumulated result
+        return result;
+    } catch (error) {
+        console.error("An error occurred while getting all data recursively", error);
+        return undefined;
+    }
+};
