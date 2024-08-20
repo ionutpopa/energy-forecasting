@@ -4,17 +4,19 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch Program",
+            "name": "Forecasting.js",
             "runtimeArgs": [ "-r", "ts-node/register" ],
             "args": [
                 "${workspaceFolder}/src/index.ts",
-                "debug"
+                // "debug",
+                // "drop-all",
+                // "parse-all-data",
+                "build-and-train",
             ],
             "cwd": "${workspaceFolder}",
             "outFiles": [
                 "${workspaceFolder}/**/*.js"
             ],
-            "sourceMaps": true,
             "env": {
                 "MAX_RETRIES": "10"
             }
