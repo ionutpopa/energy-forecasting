@@ -17,7 +17,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
     switch (table.name) {
         case "ElectricityConsumptionTable":
             const consumption = await getAllData(DataTypeEnum.CONSUMPTION)
-            const country = "United States"
+            const country = "Brazil"
             const countryConsumptionData = consumption?.data.filter((data) => data?.country?.toLowerCase() === country?.toLowerCase())
             const consumptionData = countryConsumptionData as ElectricityConsumptionDataType[] | undefined
 
@@ -35,36 +35,34 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             let yearMin: number;
             let yearMax: number;
 
-            for (let i = 0; i < numberOfBatches; i++) {
-                const batchData = [...new Set(consumptionData.slice(i * batchSize, (i + 1) * batchSize))]
+            const batchData = [...new Set(consumptionData)]
 
-                const yearsOfConsumption = batchData?.map((cons) => Number(cons?.year))
-                const countriesOfConsumption = batchData?.map((cons) => cons.country)
-                const consumptionOfConsumption = batchData?.map((cons) => cons.consumption as number)
-                const countryIndices = batchData?.map(d => countriesOfConsumption?.indexOf(d.country))
+            const yearsOfConsumption = batchData?.map((cons) => Number(cons?.year))
+            const countriesOfConsumption = batchData?.map((cons) => cons.country)
+            const consumptionOfConsumption = batchData?.map((cons) => cons.consumption as number)
+            const countryIndices = batchData?.map(d => countriesOfConsumption?.indexOf(d.country))
 
-                // One-hot encode the country indices
-                const countryTensors = tf.oneHot(tf.tensor1d(countryIndices, 'int32'), countriesOfConsumption.length)
+            // One-hot encode the country indices
+            const countryTensors = tf.oneHot(tf.tensor1d(countryIndices, 'int32'), countriesOfConsumption.length)
 
-                consumptionMin = Math.min(...consumptionOfConsumption);
-                consumptionMax = Math.max(...consumptionOfConsumption);
-                const normalizedConsumption = consumptionOfConsumption.map(c => (c - consumptionMin) / (consumptionMax - consumptionMin));
+            consumptionMin = Math.min(...consumptionOfConsumption);
+            consumptionMax = Math.max(...consumptionOfConsumption);
+            const normalizedConsumption = consumptionOfConsumption.map(c => (c - consumptionMin) / (consumptionMax - consumptionMin));
 
-                // Normalize the years
-                yearMin = Math.min(...yearsOfConsumption);
-                yearMax = Math.max(...yearsOfConsumption);
-                const normalizedYears = yearsOfConsumption.map(year => (year - yearMin) / (yearMax - yearMin));
+            // Normalize the years
+            yearMin = Math.min(...yearsOfConsumption);
+            yearMax = Math.max(...yearsOfConsumption);
+            const normalizedYears = yearsOfConsumption.map(year => (year - yearMin) / (yearMax - yearMin));
 
-                const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
+            const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
 
-                // const featureTensor = yearTensor.concat(countryTensors, 1)
-                const featureTensor = yearTensor
-                const targetTensor = tf.tensor2d(normalizedConsumption, [normalizedConsumption.length, 1])
+            // const featureTensor = yearTensor.concat(countryTensors, 1)
+            const featureTensor = yearTensor
+            const targetTensor = tf.tensor2d(normalizedConsumption, [normalizedConsumption.length, 1])
 
-                await trainModel(model, featureTensor, targetTensor)
+            await trainModel(model, featureTensor, targetTensor)
 
-                console.log(`Completed batch ${i + 1}/${numberOfBatches}`);
-            }
+            logger(`Completed training for ${modelName}`)
 
             // const savePath = `file://../src/models/${modelName}`;
             // const saveDir = path.join(__dirname, '..', 'models');
@@ -89,6 +87,14 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
                 const normalizedValue = array[0][0]; // Extract the value
                 const denormalizedValue = normalizedValue * (consumptionMax - consumptionMin) + consumptionMin;
                 logger(`Denormalized Prediction: ${denormalizedValue}`);
+
+                // The difference for 2023 for Canada between what the website gave use and what we have it's kinda big for Linear Regression
+                // like we have predicted 4429 but the number from the website is 3875, meaning we have an error about 14.30% percent from the good number.
+                // but for Brazil, from our model we got 3816 and in reality is 3854TWh and that's very close, difference is about 0.98%.
+                // In conclusion, Linear Regression works kinda good if your numbers tend to go up or down but don't wobble too much in the dataset.
+
+                // Close the app
+                process.exit(0)
             }).catch((error: any) => {
                 logger(`Error converting tensor to array: ${error}`, 'error');
             });
