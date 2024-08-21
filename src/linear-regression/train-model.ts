@@ -13,9 +13,9 @@ import logger from '../utils/formatLogs';
 export const trainModel = async (model: tf.Sequential, inputTensor: tf.Tensor<tf.Rank>, labelTensor: tf.Tensor<tf.Rank>) => {
     return await model.fit(inputTensor, labelTensor, {
         // epochs: Integer number of times to iterate over the training data arrays.
-        epochs: 100, // Increase for better accuracy
-        // shuffle: true,
-        // batchSize: 32,
+        epochs: 10000, // iterations through data by the model
+        shuffle: true,
+        batchSize: parseInt(process.env.BATCH_SIZE || "32"),
         callbacks: {
             onEpochEnd: (epoch, logs) => {
                 if (isNaN((logs as tf.Logs).loss)) {

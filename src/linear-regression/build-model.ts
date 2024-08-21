@@ -1,6 +1,6 @@
 import * as tf from '@tensorflow/tfjs';
 
-export const buildModel = (name: string, featureTensor: tf.Tensor<tf.Rank>) => {
+export const buildModel = (name: string) => {
     let model: tf.Sequential;
     // Creates a tf.Sequential model. 
     // A sequential model is any model where the outputs of one layer are the inputs to the next layer, 
@@ -8,20 +8,15 @@ export const buildModel = (name: string, featureTensor: tf.Tensor<tf.Rank>) => {
     model = tf.sequential({
         name: name
     });
+
     // Adds a layer instance on top of the layer stack.
-    model.add(
-        // no hidden layers, linear activation
-        tf.layers.dense({ units: 1, inputShape: [featureTensor?.shape[1] || 1], activation: "sigmoid" })
-    );
-    // model.add(
-    //     tf.layers.dense({ units: 1, activation: 'softmax' })
-    // );
-    // model.add(
-    //     tf.layers.dense({ units: 1, activation: 'linear' })
-    // );
+    // no hidden layers, linear activation
+    model.add(tf.layers.dense({ units: 1, inputShape: [1], activation: 'linear' }));
+    // model.add(tf.layers.dense({ units: 1, inputShape: [1], activation: 'linear' }));
+    // model.add(tf.layers.dense({ units: 1, activation: 'softmax' }));
     
     model.compile({
-        optimizer: tf.train.sgd(0.001),
+        optimizer: tf.train.adam(),
         loss: "meanSquaredError",
     });
     return model;
