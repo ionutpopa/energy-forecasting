@@ -1,54 +1,13 @@
 import * as tf from '@tensorflow/tfjs'
 import { DataTypeEnum, ElectricityConsumptionDataType } from '../types/data'
 import { getAllData } from '../database/getAllData';
-import { all } from 'axios';
 import { buildModel } from '../linear-regression/build-model';
 import { ElectricityConsumptionTable } from '../database/config';
 import { Model, ModelCtor } from 'sequelize';
 import { trainModel } from '../linear-regression/train-model';
-
-
-    // EUREKA!!!!!!!
-    // const tf = require('@tensorflow/tfjs');
-
-    // // Your data
-    // const years = [1999, 2000, 2001, 2002, 2003];
-    // const consumptions = [100, 150, 180, 210, 250];
-    // const generations = [94, 134, 160, 190, 240];
-
-    // // Convert data to tensors
-    // const xs = tf.tensor2d(years, [years.length, 1]);
-    // const ys = tf.tensor2d(consumptions.map((c, i) => [c, generations[i]]), [years.length, 2]);
-
-    // // Define a model
-    // const model = tf.sequential();
-    // model.add(tf.layers.dense({ units: 10, activation: 'relu', inputShape: [1] }));
-    // model.add(tf.layers.dense({ units: 2 }));
-
-    // // Compile the model
-    // model.compile({ optimizer: 'adam', loss: 'meanSquaredError' });
-
-    // // Train the model
-    // async function trainModel() {
-    //     await model.fit(xs, ys, {
-    //         epochs: 100,
-    //         callbacks: {
-    //             onEpochEnd: (epoch, logs) => console.log(`Epoch ${epoch + 1}: loss = ${logs.loss}`)
-    //         }
-    //     });
-    // }
-
-    // trainModel().then(() => {
-    //     // Predict the consumption and generation for the next year (e.g., 2004)
-    //     const nextYear = tf.tensor2d([2004], [1, 1]);
-    //     const prediction = model.predict(nextYear);
-
-    //     prediction.array().then(predictedValues => {
-    //         const [predictedConsumption, predictedGeneration] = predictedValues[0];
-    //         console.log(`Predicted consumption for 2004: ${predictedConsumption}`);
-    //         console.log(`Predicted generation for 2004: ${predictedGeneration}`);
-    //     });
-    // });
+import path from 'path'
+import * as fs from 'fs'
+import logger from '../utils/formatLogs';
 
 /**
  * Base function to train models for linear regression
@@ -58,32 +17,83 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
     switch (table.name) {
         case "ElectricityConsumptionTable":
             const consumption = await getAllData(DataTypeEnum.CONSUMPTION)
-            const consumptionData = consumption?.data as ElectricityConsumptionDataType[] | undefined
+            const country = "United States"
+            const countryConsumptionData = consumption?.data.filter((data) => data?.country?.toLowerCase() === country?.toLowerCase())
+            const consumptionData = countryConsumptionData as ElectricityConsumptionDataType[] | undefined
 
             if (!consumptionData) throw new Error("Missing consumption data!")
 
-            const yearsOfConsumption = consumptionData?.map((cons) => cons.year)
-            const countriesOfConsumption = consumptionData?.map((cons) => cons.country)
-            const consumptionOfConsumption = consumptionData?.map((cons) => cons.consumption as number)
-            const countryIndices = consumptionData?.map(d => countriesOfConsumption?.indexOf(d.country))
+            const batchSize = parseInt(process.env.BATCH_SIZE || "32")
+            const numberOfBatches = Math.ceil(consumptionData.length / batchSize)
 
-            // One-hot encode the country indices
-            const countryTensors = tf.oneHot(tf.tensor1d(countryIndices, 'int32'), countriesOfConsumption.length)
+            const modelName = ElectricityConsumptionTable.tableName + " " + country
+            const model = buildModel(modelName)
 
-            const yearTensor = tf.tensor2d(yearsOfConsumption, [yearsOfConsumption.length, 1])
+            let consumptionMin: number;
+            let consumptionMax: number;
 
-            const featureTensor = yearTensor.concat(countryTensors, 1)
-            const targetTensor = tf.tensor2d(consumptionOfConsumption, [consumptionOfConsumption.length, 1])
+            let yearMin: number;
+            let yearMax: number;
 
-            const model = buildModel(ElectricityConsumptionTable.tableName, featureTensor)
+            for (let i = 0; i < numberOfBatches; i++) {
+                const batchData = [...new Set(consumptionData.slice(i * batchSize, (i + 1) * batchSize))]
 
-            const training = await trainModel(model, featureTensor, targetTensor)
+                const yearsOfConsumption = batchData?.map((cons) => Number(cons?.year))
+                const countriesOfConsumption = batchData?.map((cons) => cons.country)
+                const consumptionOfConsumption = batchData?.map((cons) => cons.consumption as number)
+                const countryIndices = batchData?.map(d => countriesOfConsumption?.indexOf(d.country))
 
-            const cwd = process.cwd()
+                // One-hot encode the country indices
+                const countryTensors = tf.oneHot(tf.tensor1d(countryIndices, 'int32'), countriesOfConsumption.length)
 
-            await model.save(`${cwd}/consumption-model`)
+                consumptionMin = Math.min(...consumptionOfConsumption);
+                consumptionMax = Math.max(...consumptionOfConsumption);
+                const normalizedConsumption = consumptionOfConsumption.map(c => (c - consumptionMin) / (consumptionMax - consumptionMin));
 
-            return training
+                // Normalize the years
+                yearMin = Math.min(...yearsOfConsumption);
+                yearMax = Math.max(...yearsOfConsumption);
+                const normalizedYears = yearsOfConsumption.map(year => (year - yearMin) / (yearMax - yearMin));
+
+                const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
+
+                // const featureTensor = yearTensor.concat(countryTensors, 1)
+                const featureTensor = yearTensor
+                const targetTensor = tf.tensor2d(normalizedConsumption, [normalizedConsumption.length, 1])
+
+                await trainModel(model, featureTensor, targetTensor)
+
+                console.log(`Completed batch ${i + 1}/${numberOfBatches}`);
+            }
+
+            // const savePath = `file://../src/models/${modelName}`;
+            // const saveDir = path.join(__dirname, '..', 'models');
+
+            // if (!fs.existsSync(saveDir)) {
+            //     fs.mkdirSync(saveDir, { recursive: true });
+            // }
+
+            // const savePath = path.join(saveDir, 'romania-consumption-model');
+
+            // const result = await model.save(`file://./romania-consumption-model`);
+
+            // return result;
+
+            const yearToPredict = 2023
+            const yearToPredictTensor = tf.tensor2d([yearToPredict].map(year => (year - yearMin) / (yearMax - yearMin)), [1, 1])
+            const prediction = model.predict(yearToPredictTensor)
+
+            // Denormalize the value
+            // @ts-ignore
+            prediction?.array().then(array => {
+                const normalizedValue = array[0][0]; // Extract the value
+                const denormalizedValue = normalizedValue * (consumptionMax - consumptionMin) + consumptionMin;
+                logger(`Denormalized Prediction: ${denormalizedValue}`);
+            }).catch((error: any) => {
+                logger(`Error converting tensor to array: ${error}`, 'error');
+            });
+
+            return "done"
         case "ElectricityGenerationTable":
             // const generationData = await getAllData(DataTypeEnum.GENERATION)
 
