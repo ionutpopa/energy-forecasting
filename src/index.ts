@@ -7,6 +7,7 @@ import { CO2EmissionsTable, connectDb, deleteSpecificTable, dropAllTables, Elect
 import logger from './utils/formatLogs'
 import * as tf from "@tensorflow/tfjs"
 import { trainModelsBasedOnTableName } from './training/lr-train-model-based-on-name'
+import 'dotenv/config'
 
 const args = process.argv?.slice(2); // Get command-line arguments, excluding 'node' and the script name
 
@@ -42,21 +43,6 @@ const start = async () => {
         require("./utils/parseCSVs")
     }
 
-    // buildMode will build all the models, this as well should be ran only once
-    // atm, we will only build the linear regression model
-    // if (buildMode) {
-    //     const initModels = [
-    //         buildModel(ElectricityConsumptionTable.tableName),
-    //         buildModel(ElectricityGenerationTable.tableName),
-    //         buildModel(WeatherDataTable.tableName),
-    //         buildModel(GdpPerCapitaGrowthTable.tableName),
-    //         buildModel(PopulationGrowthTable.tableName),
-    //         buildModel(CO2EmissionsTable.tableName)
-    //     ]
-
-    //     initModels.forEach((model) => models.push(model))
-    // }
-
     if (trainMode) {
         if (allTables.length) {
             for (const table of allTables) {
@@ -64,8 +50,15 @@ const start = async () => {
 
                 if (finishedTraining) {
                     // predict
-                    const cwd = process.cwd()
-                    const loadedModel = await tf.loadLayersModel(`${cwd}/consumption-model`);
+                    // const model = await tf.loadLayersModel(`file://../src/models/romania-consumption-model`);
+
+                    // const yearToPredict = 2023
+                    // const yearToPredictTensor = tf.tensor2d([yearToPredict], [1, 1])
+                    // const prediction = model.predict(yearToPredictTensor)
+
+                    // logger(`prediction: ${prediction}`)
+
+                    // const predictedConsumption = prediction.arraySync()[0][0];
                 }
             }
         } else {
