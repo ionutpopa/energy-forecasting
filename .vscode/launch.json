@@ -18,7 +18,8 @@
                 "${workspaceFolder}/**/*.js"
             ],
             "env": {
-                "MAX_RETRIES": "10"
+                "MAX_RETRIES": "10",
+                "BATCH_SIZE": "128"
             }
         }
     ]
