@@ -44,26 +44,22 @@ const start = async () => {
     }
 
     if (trainMode) {
-        if (allTables.length) {
-            for (const table of allTables) {
-                const finishedTraining = await trainModelsBasedOnTableName(table)
+        const YEAR_TO_PREDICT = 2024
+        // const consumptionPrediction = await trainModelsBasedOnTableName(allTables[0], YEAR_TO_PREDICT)
+        const productionPrediction = await trainModelsBasedOnTableName(allTables[1], YEAR_TO_PREDICT)
 
-                if (finishedTraining) {
-                    // predict
-                    // const model = await tf.loadLayersModel(`file://../src/models/romania-consumption-model`);
+        // if (consumptionPrediction) {
+        //     logger(`Denormalized consumptionPrediction: ${consumptionPrediction}`);
+        // }
 
-                    // const yearToPredict = 2023
-                    // const yearToPredictTensor = tf.tensor2d([yearToPredict], [1, 1])
-                    // const prediction = model.predict(yearToPredictTensor)
+        if (productionPrediction) {
+            logger(`Denormalized productionPrediction: ${productionPrediction}`);
 
-                    // logger(`prediction: ${prediction}`)
-
-                    // const predictedConsumption = prediction.arraySync()[0][0];
-                }
-            }
-        } else {
-            logger("No tables initialized to train", "warning")
+            // Romania 2024: Denormalized productionPrediction: 57.12200713723898 TWh
         }
+
+        // Close the app
+        process.exit(0)
     }
 }
 
