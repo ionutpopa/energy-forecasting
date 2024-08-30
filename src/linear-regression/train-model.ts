@@ -15,7 +15,7 @@ export const trainModel = async (model: tf.Sequential, inputTensor: tf.Tensor<tf
         // epochs: Integer number of times to iterate over the training data arrays.
         epochs: 10000, // iterations through data by the model
         shuffle: true,
-        batchSize: parseInt(process.env.BATCH_SIZE || "32"),
+        // batchSize: parseInt(process.env.BATCH_SIZE || "32"),
         callbacks: {
             onEpochEnd: (epoch, logs) => {
                 if (isNaN((logs as tf.Logs).loss)) {
