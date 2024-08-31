@@ -13,9 +13,8 @@ import logger from '../utils/formatLogs';
  * Base function to train models for linear regression
  * @param table
  */
-export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, any>>, YEAR_TO_PREDICT: number) => {
-    let predictionResult = undefined;
-    const country = "Romania"
+export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, any>>, YEAR_TO_PREDICT: number, country: string) => {
+    let predictionResults = undefined;
 
     switch (table.name) {
         case "ElectricityConsumptionTable":
@@ -29,7 +28,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             // const numberOfBatches = Math.ceil(consumptionData.length / batchSize)
 
             const modelName = ElectricityConsumptionTable.tableName + " " + country
-            const model = buildModel(modelName)
+            const linearModel = buildModel(modelName, 'linear')
 
             let consumptionMin: number;
             let consumptionMax: number;
@@ -62,7 +61,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             const featureTensor = yearTensor
             const targetTensor = tf.tensor2d(normalizedConsumption, [normalizedConsumption.length, 1])
 
-            await trainModel(model, featureTensor, targetTensor)
+            await trainModel(linearModel, featureTensor, targetTensor)
 
             logger(`Completed training for ${modelName}`)
 
@@ -80,7 +79,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             // return result;
 
             const yearToPredictTensor = tf.tensor2d([YEAR_TO_PREDICT].map(year => (year - yearMin) / (yearMax - yearMin)), [1, 1])
-            const prediction = model.predict(yearToPredictTensor)
+            const prediction = linearModel.predict(yearToPredictTensor)
 
             // Denormalize the value
             // @ts-ignore
@@ -88,14 +87,14 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
                 const normalizedValue = array[0][0]; // Extract the value
                 const denormalizedValue = normalizedValue * (consumptionMax - consumptionMin) + consumptionMin;
                 
-                predictionResult = denormalizedValue;
+                predictionResults = denormalizedValue;
 
                 // The difference for 2023 for Canada between what the website gave use and what we have it's kinda big for Linear Regression
                 // like we have predicted 4429 but the number from the website is 3875, meaning we have an error about 14.30% percent from the good number.
                 // but for Brazil, from our model we got 3816 and in reality is 3854TWh and that's very close, difference is about 0.98%.
                 // In conclusion, Linear Regression works kinda good if your numbers tend to go up or down but don't wobble too much in the dataset.
 
-                return predictionResult
+                return predictionResults
             }).catch((error: any) => {
                 logger(`Error converting tensor to array: ${error}`, 'error');
             });
@@ -107,7 +106,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             if (!generationData) throw new Error("Missing generation data!")
 
             const modelName = ElectricityConsumptionTable.tableName + " " + country
-            const model = buildModel(modelName)
+            const linearModel = buildModel(modelName, 'relu')
 
             let generationMin: number;
             let generationMax: number;
@@ -134,25 +133,25 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             const featureTensor = yearTensor
             const targetTensor = tf.tensor2d(normalizedConsumption, [normalizedConsumption.length, 1])
 
-            await trainModel(model, featureTensor, targetTensor)
+            await trainModel(linearModel, featureTensor, targetTensor)
 
             logger(`Completed training for ${modelName}`)
             const yearToPredictTensor = tf.tensor2d([YEAR_TO_PREDICT].map(year => (year - yearMin) / (yearMax - yearMin)), [1, 1])
-            const prediction = model.predict(yearToPredictTensor)
+            const prediction = linearModel.predict(yearToPredictTensor)
 
             // @ts-ignore
             return prediction?.array().then(array => {
                 const normalizedValue = array[0][0]; // Extract the value
                 const denormalizedValue = normalizedValue * (generationMax - generationMin) + generationMin;
                 
-                predictionResult = denormalizedValue;
+                predictionResults = denormalizedValue;
 
                 // The difference for 2023 for Canada between what the website gave use and what we have it's kinda big for Linear Regression
                 // like we have predicted 4429 but the number from the website is 3875, meaning we have an error about 14.30% percent from the good number.
                 // but for Brazil, from our model we got 3816 and in reality is 3854TWh and that's very close, difference is about 0.98%.
                 // In conclusion, Linear Regression works kinda good if your numbers tend to go up or down but don't wobble too much in the dataset.
 
-                return predictionResult
+                return predictionResults
             }).catch((error: any) => {
                 logger(`Error converting tensor to array: ${error}`, 'error');
             });

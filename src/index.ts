@@ -45,17 +45,26 @@ const start = async () => {
 
     if (trainMode) {
         const YEAR_TO_PREDICT = 2024
-        // const consumptionPrediction = await trainModelsBasedOnTableName(allTables[0], YEAR_TO_PREDICT)
-        const productionPrediction = await trainModelsBasedOnTableName(allTables[1], YEAR_TO_PREDICT)
+        const COUNTRY = 'Romania'
+        const stop = true
+        
+        const consumptionPrediction = !stop && await trainModelsBasedOnTableName(allTables[0], YEAR_TO_PREDICT, COUNTRY)
 
-        // if (consumptionPrediction) {
-        //     logger(`Denormalized consumptionPrediction: ${consumptionPrediction}`);
-        // }
+        const productionPrediction = await trainModelsBasedOnTableName(allTables[1], YEAR_TO_PREDICT, COUNTRY)
+
+        if (consumptionPrediction) {
+            logger(`Denormalized consumptionPrediction: ${consumptionPrediction}`);
+        }
 
         if (productionPrediction) {
             logger(`Denormalized productionPrediction: ${productionPrediction}`);
 
-            // Romania 2024: Denormalized productionPrediction: 57.12200713723898 TWh
+            // GeLU: Romania 2023: Denormalized productionPrediction: 57.04425471481681 TWh
+            // ReLU: Romania 2023: Denormalized productionPrediction: 56.88054506093263 TWh
+            // Linear: Romania 2023: Denormalized productionPrediction: 57.41453388151526 TWh
+
+            // ReLU: Romania 2024: Denormalized productionPrediction: 56.82023400357365 TWh
+            // Linear: Romania 2024: Denormalized productionPrediction: 57.12200713723898 TWh
         }
 
         // Close the app
