@@ -114,4 +114,6 @@ docker run -it --rm -p 8888:8888 tensorflow/tensorflow:latest
 
 Linear Regression
 
-Sigmoid
+ReLU
+
+![ReLU Activation Formula](relu-activation-formula.png)
