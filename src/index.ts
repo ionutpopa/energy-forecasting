@@ -27,7 +27,7 @@ const start = async () => {
     // Import the database configuration
     await connectDb();
 
-    const allTables = [ElectricityConsumptionTable, ElectricityGenerationTable, WeatherDataTable, GdpPerCapitaGrowthTable, PopulationGrowthTable, CO2EmissionsTable]
+    const ALL_TABLES = [ElectricityConsumptionTable, ElectricityGenerationTable, WeatherDataTable, GdpPerCapitaGrowthTable, PopulationGrowthTable, CO2EmissionsTable]
 
     if (dropTablesMode) {
         // await deleteSpecificTable("ElectricDataTables")
@@ -44,13 +44,13 @@ const start = async () => {
     }
 
     if (trainMode) {
-        const YEAR_TO_PREDICT = 2024
+        const YEAR_TO_PREDICT = 2023
         const COUNTRY = 'Romania'
         const stop = true
         
-        const consumptionPrediction = !stop && await trainModelsBasedOnTableName(allTables[0], YEAR_TO_PREDICT, COUNTRY)
-
-        const productionPrediction = await trainModelsBasedOnTableName(allTables[1], YEAR_TO_PREDICT, COUNTRY)
+        const consumptionPrediction = !stop && await trainModelsBasedOnTableName(ALL_TABLES[0], YEAR_TO_PREDICT, COUNTRY)
+        const productionPrediction = !stop && await trainModelsBasedOnTableName(ALL_TABLES[1], YEAR_TO_PREDICT, COUNTRY)
+        const weatherPrediction = await trainModelsBasedOnTableName(ALL_TABLES[2], YEAR_TO_PREDICT, COUNTRY)
 
         if (consumptionPrediction) {
             logger(`Denormalized consumptionPrediction: ${consumptionPrediction}`);
@@ -65,6 +65,12 @@ const start = async () => {
 
             // ReLU: Romania 2024: Denormalized productionPrediction: 56.82023400357365 TWh
             // Linear: Romania 2024: Denormalized productionPrediction: 57.12200713723898 TWh
+        }
+
+        if (weatherPrediction) {
+            logger(`Denormalized weatherPrediction: ${weatherPrediction}`);
+
+            // Linear: Romania 2023: Denormalized weatherPrediction: 13.846735072135926 C
         }
 
         // Close the app

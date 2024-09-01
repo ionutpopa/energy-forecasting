@@ -12,11 +12,15 @@ type GetDataReturn = {
     totalPages: number;
 }
 
-export const getData: (typeOfData: DataTypeEnum, page?: number, pageSize?: number, year?: number, sortOrder?: string) => Promise<(GetDataReturn | undefined)> = async (typeOfData: DataTypeEnum, page = 1, pageSize = 10, year = undefined, sortOrder = 'ASC') => {
+export const getData: (typeOfData: DataTypeEnum, country?: string, page?: number, pageSize?: number, year?: number, sortOrder?: string) => Promise<(GetDataReturn | undefined)> = async (typeOfData: DataTypeEnum, country = undefined, page = 1, pageSize = 10, year = undefined, sortOrder = 'ASC') => {
     const table = getTable(typeOfData);
 
     const offset = (page - 1) * pageSize;
     const whereCondition: any = {};
+
+    if (country) {
+        whereCondition.country = country
+    }
 
     if (year) {
         whereCondition.year = year;
@@ -30,7 +34,7 @@ export const getData: (typeOfData: DataTypeEnum, page?: number, pageSize?: numbe
     try {
         const findData = await table.findAndCountAll({
             where: whereCondition,
-            order: [[table.name === "WeatherDataTables" ? "date" : 'year', sortOrder]],
+            order: [[table.name === 'WeatherDataTable' ? 'date' : 'year', sortOrder]],
             limit: pageSize,
             offset: offset,
         })
@@ -51,6 +55,7 @@ export const getData: (typeOfData: DataTypeEnum, page?: number, pageSize?: numbe
 
 export const getAllData = async (
     typeOfData: DataTypeEnum,
+    country?: string,
     page = 1,
     pageSize = 10,
     year?: number,
@@ -58,7 +63,7 @@ export const getAllData = async (
 ): Promise<GetDataReturn | undefined> => {
     try {
         // Call the original getData function
-        const result = await getData(typeOfData, page, pageSize, year, sortOrder);
+        const result = await getData(typeOfData, country, page, pageSize, year, sortOrder);
         
         if (!result) {
             return undefined;
@@ -68,7 +73,7 @@ export const getAllData = async (
 
         // If we haven't fetched all the pages yet, recursively fetch the next page
         if (page < totalPages) {
-            const nextPageData = await getAllData(typeOfData, page + 1, pageSize, year, sortOrder);
+            const nextPageData = await getAllData(typeOfData, country, page + 1, pageSize, year, sortOrder);
             if (nextPageData && nextPageData.data) {
                 // Merge current page data with data from subsequent pages
                 return {

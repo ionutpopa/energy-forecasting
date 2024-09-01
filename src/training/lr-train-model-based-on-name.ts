@@ -1,8 +1,8 @@
 import * as tf from '@tensorflow/tfjs'
-import { DataTypeEnum, ElectricityConsumptionDataType, ElectricityGenerationDataType } from '../types/data'
+import { DataTypeEnum, ElectricityConsumptionDataType, ElectricityGenerationDataType, WeatherDataType } from '../types/data'
 import { getAllData } from '../database/getAllData';
 import { buildModel } from '../linear-regression/build-model';
-import { ElectricityConsumptionTable } from '../database/config';
+import { ElectricityConsumptionTable, WeatherDataTable } from '../database/config';
 import { Model, ModelCtor } from 'sequelize';
 import { trainModel } from '../linear-regression/train-model';
 import path from 'path'
@@ -13,13 +13,13 @@ import logger from '../utils/formatLogs';
  * Base function to train models for linear regression
  * @param table
  */
-export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, any>>, YEAR_TO_PREDICT: number, country: string) => {
+export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, any>>, yearToPredict: number, country: string) => {
     let predictionResults = undefined;
 
     switch (table.name) {
         case "ElectricityConsumptionTable":
-            const consumption = await getAllData(DataTypeEnum.CONSUMPTION)
-            const countryConsumptionData = consumption?.data.filter((data) => data?.country?.toLowerCase() === country?.toLowerCase())
+            const consumption = await getAllData(DataTypeEnum.CONSUMPTION, country)
+            const countryConsumptionData = consumption?.data
             const consumptionData = countryConsumptionData as ElectricityConsumptionDataType[] | undefined
 
             if (!consumptionData) throw new Error("Missing consumption data!")
@@ -78,7 +78,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
 
             // return result;
 
-            const yearToPredictTensor = tf.tensor2d([YEAR_TO_PREDICT].map(year => (year - yearMin) / (yearMax - yearMin)), [1, 1])
+            const yearToPredictTensor = tf.tensor2d([yearToPredict].map(year => (year - yearMin) / (yearMax - yearMin)), [1, 1])
             const prediction = linearModel.predict(yearToPredictTensor)
 
             // Denormalize the value
@@ -99,14 +99,14 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
                 logger(`Error converting tensor to array: ${error}`, 'error');
             });
         case "ElectricityGenerationTable": {
-            const generation = await getAllData(DataTypeEnum.GENERATION)
-            const countryGenerationData = generation?.data.filter((data) => data?.country?.toLowerCase() === country?.toLowerCase())
+            const generation = await getAllData(DataTypeEnum.GENERATION, country)
+            const countryGenerationData = generation?.data
             const generationData = countryGenerationData as ElectricityGenerationDataType[] | undefined
 
             if (!generationData) throw new Error("Missing generation data!")
 
             const modelName = ElectricityConsumptionTable.tableName + " " + country
-            const linearModel = buildModel(modelName, 'relu')
+            const model = buildModel(modelName, 'relu')
 
             let generationMin: number;
             let generationMax: number;
@@ -122,7 +122,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             generationMin = Math.min(...generationOfGeneration);
             generationMax = Math.max(...generationOfGeneration);
             
-            const normalizedConsumption = generationOfGeneration.map(c => (c - generationMin) / (generationMax - generationMin));
+            const normalizedGeneration = generationOfGeneration.map(g => (g - generationMin) / (generationMax - generationMin));
             
             yearMin = Math.min(...yearsOfGeneration);
             yearMax = Math.max(...yearsOfGeneration);
@@ -131,13 +131,13 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             
             const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
             const featureTensor = yearTensor
-            const targetTensor = tf.tensor2d(normalizedConsumption, [normalizedConsumption.length, 1])
+            const targetTensor = tf.tensor2d(normalizedGeneration, [normalizedGeneration.length, 1])
 
-            await trainModel(linearModel, featureTensor, targetTensor)
+            await trainModel(model, featureTensor, targetTensor)
 
             logger(`Completed training for ${modelName}`)
-            const yearToPredictTensor = tf.tensor2d([YEAR_TO_PREDICT].map(year => (year - yearMin) / (yearMax - yearMin)), [1, 1])
-            const prediction = linearModel.predict(yearToPredictTensor)
+            const yearToPredictTensor = tf.tensor2d([yearToPredict].map(year => (year - yearMin) / (yearMax - yearMin)), [1, 1])
+            const prediction = model.predict(yearToPredictTensor)
 
             // @ts-ignore
             return prediction?.array().then(array => {
@@ -146,21 +146,65 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
                 
                 predictionResults = denormalizedValue;
 
-                // The difference for 2023 for Canada between what the website gave use and what we have it's kinda big for Linear Regression
-                // like we have predicted 4429 but the number from the website is 3875, meaning we have an error about 14.30% percent from the good number.
-                // but for Brazil, from our model we got 3816 and in reality is 3854TWh and that's very close, difference is about 0.98%.
-                // In conclusion, Linear Regression works kinda good if your numbers tend to go up or down but don't wobble too much in the dataset.
+                return predictionResults
+            }).catch((error: any) => {
+                logger(`Error converting tensor to array: ${error}`, 'error');
+            });
+        }
+        case "WeatherDataTable": {
+            const weather = await getAllData(DataTypeEnum.WEATHER, country)
+            const countryWeatherData = weather?.data
+            const weatherData = countryWeatherData as WeatherDataType[] | undefined
+
+            if (!weatherData) throw new Error("Missing weather data!")
+
+            const modelName = WeatherDataTable.tableName + " " + country
+            const model = buildModel(modelName, 'relu')
+
+            let averageTemperatureMin: number;
+            let averageTemperatureMax: number;
+
+            let dateMin: number;
+            let dateMax: number;
+
+            const trainData = [...new Set(weatherData)]
+
+            const datesOfWeather = trainData?.map((weather) => weather.date.getTime())
+            const avreageTemperatureOfWeather = trainData?.map((weather) => weather?.averageTemperature)
+
+            dateMin = Math.min(...datesOfWeather);
+            dateMax = Math.max(...datesOfWeather);
+
+            averageTemperatureMin = Math.min(...avreageTemperatureOfWeather);
+            averageTemperatureMax = Math.max(...avreageTemperatureOfWeather);
+
+            const normalizedDates = datesOfWeather.map(date => (date - dateMin) / (dateMax - dateMin));
+            const normalizedAverageTemperature = avreageTemperatureOfWeather.map(a => (a - averageTemperatureMin) / (averageTemperatureMax - averageTemperatureMin));
+
+            // averageTemperature will be the variable we want to predict here for now
+
+            const yearTensor = tf.tensor2d(normalizedDates, [normalizedDates.length, 1])
+            const featureTensor = yearTensor
+            const targetTensor = tf.tensor2d(normalizedAverageTemperature, [normalizedAverageTemperature.length, 1])
+
+            await trainModel(model, featureTensor, targetTensor)
+
+            logger(`Completed training for ${modelName}`)
+            const yearToPredictTensor = tf.tensor2d([yearToPredict].map(year => (year - new Date(dateMin).getUTCFullYear()) / (new Date(dateMax).getUTCFullYear() - new Date(dateMin).getUTCFullYear())), [1, 1])
+            const prediction = model.predict(yearToPredictTensor)
+
+            // @ts-ignore
+            return prediction?.array().then(array => {
+                const normalizedValue = array[0][0]; // Extract the value
+                const denormalizedValue = normalizedValue * (averageTemperatureMax - averageTemperatureMin) + averageTemperatureMin;
+                
+                predictionResults = denormalizedValue;
 
                 return predictionResults
             }).catch((error: any) => {
                 logger(`Error converting tensor to array: ${error}`, 'error');
             });
         }
-        case "WeatherDataTable":
-            // const weatherData = await getAllData(DataTypeEnum.WEATHER)
-
-            // console.log(weatherData)
-            break
         case "GdpPerCapitaGrowthTable":
 
             break
