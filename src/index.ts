@@ -71,6 +71,7 @@ const start = async () => {
             logger(`Denormalized weatherPrediction: ${weatherPrediction}`);
 
             // Linear: Romania 2023: Denormalized weatherPrediction: 13.846735072135926 C
+            // ReLU: Romania 2023: Denormalized weatherPrediction: -9.4 C (cleary bad lol)
         }
 
         // Close the app
