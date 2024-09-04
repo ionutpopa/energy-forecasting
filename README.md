@@ -25,7 +25,7 @@ Params that we take in consideration:
 - GDP per capita growth (gdp-per-capita-growth.csv)
     - country
     - year
-    - GDP per capita growth (annual %)
+    - GDP per capita growth (annual GDP change %)
 - Access to electricity vs gdp per capita (access-to-electricity-vs-gdp-per-capita.csv)
     - country
     - year
