@@ -12,6 +12,8 @@
                 // "drop-all",
                 // "parse-all-data",
                 "build-and-train",
+                // "population-growth",
+                "generation"
             ],
             "cwd": "${workspaceFolder}",
             "outFiles": [
@@ -19,7 +21,6 @@
             ],
             "env": {
                 "MAX_RETRIES": "10",
-                "BATCH_SIZE": "128"
             }
         }
     ]
