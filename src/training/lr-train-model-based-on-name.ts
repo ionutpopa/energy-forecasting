@@ -1,19 +1,20 @@
 import * as tf from '@tensorflow/tfjs'
-import { DataTypeEnum, ElectricityConsumptionDataType, ElectricityGenerationDataType, WeatherDataType } from '../types/data'
+import { CO2EmissionsDataType, DataTypeEnum, ElectricityConsumptionDataType, ElectricityGenerationDataType, GdpPerCapitaGrowthDataType, PopulationGrowthDataType, WeatherDataType } from '../types/data'
 import { getAllData } from '../database/getAllData';
 import { buildModel } from '../linear-regression/build-model';
-import { ElectricityConsumptionTable, WeatherDataTable } from '../database/config';
+import { ElectricityConsumptionTable, GdpPerCapitaGrowthTable, PopulationGrowthTable, WeatherDataTable } from '../database/config';
 import { Model, ModelCtor } from 'sequelize';
 import { trainModel } from '../linear-regression/train-model';
 import path from 'path'
 import * as fs from 'fs'
 import logger from '../utils/formatLogs';
+import { ActivationIdentifier } from '../types/model';
 
 /**
  * Base function to train models for linear regression
  * @param table
  */
-export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, any>>, yearToPredict: number, country: string) => {
+export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, any>>, yearToPredict: number, country: string, activationIdentifier: ActivationIdentifier) => {
     let predictionResults = undefined;
 
     switch (table.name) {
@@ -159,7 +160,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             if (!weatherData) throw new Error("Missing weather data!")
 
             const modelName = WeatherDataTable.tableName + " " + country
-            const model = buildModel(modelName, 'relu')
+            const model = buildModel(modelName, 'linear')
 
             let averageTemperatureMin: number;
             let averageTemperatureMax: number;
@@ -205,16 +206,166 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
                 logger(`Error converting tensor to array: ${error}`, 'error');
             });
         }
-        case "GdpPerCapitaGrowthTable":
+        case "GdpPerCapitaGrowthTable": {
+            const gdpPerCapitaGrowth = await getAllData(DataTypeEnum.GDP_PER_CAPITA_GROWTH, country)
+            const countryGdpPerCapitaGrowthData = gdpPerCapitaGrowth?.data
+            const gdpPerCapitaGrowthData = countryGdpPerCapitaGrowthData as GdpPerCapitaGrowthDataType[] | undefined
 
-            break
-        case "PopulationGrowthTable":
+            if (!gdpPerCapitaGrowthData) throw new Error("Missing gdp per capita growth data!")
 
-            break
-        case "CO2EmissionsTable":
+            const modelName = GdpPerCapitaGrowthTable.tableName + " " + country
+            const model = buildModel(modelName, activationIdentifier)
 
-            break
+            let gdpPerCapitaGrowthMin: number;
+            let gdpPerCapitaGrowthMax: number;
+
+            let yearMin: number;
+            let yearMax: number;
+
+            const trainData = [...new Set(gdpPerCapitaGrowthData)]
+
+            const yearsOfGdpPerCapitaGrowthData = trainData?.map((gdpPerCapitaGrowthData) => gdpPerCapitaGrowthData.year)
+            const gdpPerCapitaGrowthOfGdpPerCapitaGrowthData = trainData?.map((gdpPerCapitaGrowthData) => gdpPerCapitaGrowthData?.gdpPerCapitaGrowth)
+
+            yearMin = Math.min(...yearsOfGdpPerCapitaGrowthData);
+            yearMax = Math.max(...yearsOfGdpPerCapitaGrowthData);
+
+            gdpPerCapitaGrowthMin = Math.min(...gdpPerCapitaGrowthOfGdpPerCapitaGrowthData);
+            gdpPerCapitaGrowthMax = Math.max(...gdpPerCapitaGrowthOfGdpPerCapitaGrowthData);
+
+            const normalizedYears = yearsOfGdpPerCapitaGrowthData.map(year => (year - yearMin) / (yearMax - yearMin));
+            const normalizedGdpPerCapitaGrowthData = gdpPerCapitaGrowthOfGdpPerCapitaGrowthData.map(g => (g - gdpPerCapitaGrowthMin) / (gdpPerCapitaGrowthMax - gdpPerCapitaGrowthMin));
+
+            const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
+            const featureTensor = yearTensor
+            const targetTensor = tf.tensor2d(normalizedGdpPerCapitaGrowthData, [normalizedGdpPerCapitaGrowthData.length, 1])
+
+            await trainModel(model, featureTensor, targetTensor)
+
+            logger(`Completed training for ${modelName}`)
+
+            const yearToPredictTensor = tf.tensor2d([yearToPredict].map(year => (year - yearMin) / (yearMax - yearMin)), [1, 1])
+            const prediction = model.predict(yearToPredictTensor)
+
+            // @ts-ignore
+            return prediction?.array().then(array => {
+                const normalizedValue = array[0][0];
+                const denormalizedValue = normalizedValue * (gdpPerCapitaGrowthMax - gdpPerCapitaGrowthMin) + gdpPerCapitaGrowthMin;
+                
+                predictionResults = denormalizedValue;
+
+                return predictionResults
+            }).catch((error: any) => {
+                logger(`Error converting tensor to array: ${error}`, 'error');
+            });
+        }
+        case "PopulationGrowthTable": {
+            const populationGrowth = await getAllData(DataTypeEnum.POPULATION_GROWTH, country)
+            const countryPopulationGrowthData = populationGrowth?.data
+            const populationGrowthData = countryPopulationGrowthData as PopulationGrowthDataType[] | undefined
+
+            if (!populationGrowthData) throw new Error("Missing population growth data!")
+
+            const modelName = PopulationGrowthTable.tableName + " " + country
+            const model = buildModel(modelName, activationIdentifier)
+
+            let populationGrowthMin: number;
+            let populationGrowthMax: number;
+
+            let yearMin: number;
+            let yearMax: number;
+
+            const trainData = [...new Set(populationGrowthData)]
+
+            const yearsOfPopulationGrowthData = trainData?.map((populationGrowthData) => populationGrowthData.year)
+            const populationGrowthOfPopulationGrowthData = trainData?.map((populationGrowthData) => populationGrowthData?.population)
+
+            yearMin = Math.min(...yearsOfPopulationGrowthData);
+            yearMax = Math.max(...yearsOfPopulationGrowthData);
+
+            populationGrowthMin = Math.min(...populationGrowthOfPopulationGrowthData);
+            populationGrowthMax = Math.max(...populationGrowthOfPopulationGrowthData);
+
+            const normalizedYears = yearsOfPopulationGrowthData.map(year => (year - yearMin) / (yearMax - yearMin));
+            const normalizedPopulationGrowthData = populationGrowthOfPopulationGrowthData.map(p => (p - populationGrowthMin) / (populationGrowthMax - populationGrowthMin));
+
+            const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
+            const featureTensor = yearTensor
+            const targetTensor = tf.tensor2d(normalizedPopulationGrowthData, [normalizedPopulationGrowthData.length, 1])
+
+            await trainModel(model, featureTensor, targetTensor)
+
+            logger(`Completed training for ${modelName}`)
+
+            const yearToPredictTensor = tf.tensor2d([yearToPredict].map(year => (year - yearMin) / (yearMax - yearMin)), [1, 1])
+            const prediction = model.predict(yearToPredictTensor)
+
+            // @ts-ignore
+            return prediction?.array().then(array => {
+                const normalizedValue = array[0][0];
+                const denormalizedValue = normalizedValue * (populationGrowthMax - populationGrowthMin) + populationGrowthMin;
+                
+                predictionResults = denormalizedValue;
+
+                return predictionResults
+            }).catch((error: any) => {
+                logger(`Error converting tensor to array: ${error}`, 'error');
+            });
+        }
+        case "CO2EmissionsTable": {
+            const CO2Emissions = await getAllData(DataTypeEnum.CO2_EMISSIONS, country)
+            const countryCO2EmissionsData = CO2Emissions?.data
+            const CO2EmissionsData = countryCO2EmissionsData as CO2EmissionsDataType[] | undefined
+
+            if (!CO2EmissionsData) throw new Error("Missing co2 emissions data!")
+
+            const modelName = PopulationGrowthTable.tableName + " " + country
+            const model = buildModel(modelName, activationIdentifier)
+
+            let CO2EmissionshMin: number;
+            let CO2EmissionsMax: number;
+
+            let yearMin: number;
+            let yearMax: number;
+
+            const trainData = [...new Set(CO2EmissionsData)]
+
+            const yearsOfCO2EmissionsData = trainData?.map((CO2EmissionsData) => CO2EmissionsData.year)
+            const CO2EmissionsOfCO2EmissionsData = trainData?.map((CO2EmissionsData) => CO2EmissionsData?.co2Emissions)
+
+            yearMin = Math.min(...yearsOfCO2EmissionsData);
+            yearMax = Math.max(...yearsOfCO2EmissionsData);
+
+            CO2EmissionshMin = Math.min(...CO2EmissionsOfCO2EmissionsData);
+            CO2EmissionsMax = Math.max(...CO2EmissionsOfCO2EmissionsData);
+
+            const normalizedYears = yearsOfCO2EmissionsData.map(year => (year - yearMin) / (yearMax - yearMin));
+            const normalizedCO2Emissions = CO2EmissionsOfCO2EmissionsData.map(c => (c - CO2EmissionshMin) / (CO2EmissionsMax - CO2EmissionshMin));
+
+            const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
+            const featureTensor = yearTensor
+            const targetTensor = tf.tensor2d(normalizedCO2Emissions, [normalizedCO2Emissions.length, 1])
+
+            await trainModel(model, featureTensor, targetTensor)
+
+            logger(`Completed training for ${modelName}`)
+
+            const yearToPredictTensor = tf.tensor2d([yearToPredict].map(year => (year - yearMin) / (yearMax - yearMin)), [1, 1])
+            const prediction = model.predict(yearToPredictTensor)
+
+            // @ts-ignore
+            return prediction?.array().then(array => {
+                const normalizedValue = array[0][0];
+                const denormalizedValue = normalizedValue * (CO2EmissionsMax - CO2EmissionshMin) + CO2EmissionshMin;
+                
+                predictionResults = denormalizedValue;
+
+                return predictionResults
+            }).catch((error: any) => {
+                logger(`Error converting tensor to array: ${error}`, 'error');
+            });
+        }
         default:
-            break;
+            return predictionResults;
     }
 }

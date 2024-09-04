@@ -1,6 +1,6 @@
 import * as tf from '@tensorflow/tfjs';
+import { ActivationIdentifier } from '../types/model';
 
-type ActivationIdentifier = 'elu' | 'hardSigmoid' | 'linear' | 'relu' | 'relu6' | 'selu' | 'sigmoid' | 'softmax' | 'softplus' | 'softsign' | 'tanh' | 'swish' | 'mish' | 'gelu' | 'gelu_new';
 
 export const buildModel = (name: string, activationIdentifier: ActivationIdentifier) => {
     let model: tf.Sequential;
