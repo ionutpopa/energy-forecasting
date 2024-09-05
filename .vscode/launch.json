@@ -12,8 +12,9 @@
                 // "drop-all",
                 // "parse-all-data",
                 "build-and-train",
+                "consumption",
                 // "population-growth",
-                "generation"
+                // "generation"
             ],
             "cwd": "${workspaceFolder}",
             "outFiles": [

@@ -9,6 +9,23 @@ import path from 'path'
 import * as fs from 'fs'
 import logger from '../utils/formatLogs';
 import { ActivationIdentifier } from '../types/model';
+import "tfjs-node-save"
+
+const saveModelLocally = async (modelName: string, model: tf.Sequential) => {
+    const saveDir = path.join(__dirname, '..', 'models');
+
+    if (!fs.existsSync(saveDir)) {
+        fs.mkdirSync(saveDir, { recursive: true });
+    }
+
+    const savePath = `file://${saveDir}/${modelName?.replace(" ", "_")?.toLowerCase()}`
+
+    logger(`savePath: ${savePath}`)
+
+    const result = await model.save(savePath);
+
+    return result;
+}
 
 /**
  * Base function to train models for linear regression
@@ -28,7 +45,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             // const batchSize = parseInt(process.env.BATCH_SIZE || "32")
             // const numberOfBatches = Math.ceil(consumptionData.length / batchSize)
 
-            const modelName = ElectricityConsumptionTable.tableName + " " + country
+            const modelName = ElectricityConsumptionTable.name + " " + country
             const linearModel = buildModel(modelName, 'linear')
 
             let consumptionMin: number;
@@ -66,18 +83,9 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
 
             logger(`Completed training for ${modelName}`)
 
-            // const savePath = `file://../src/models/${modelName}`;
-            // const saveDir = path.join(__dirname, '..', 'models');
+            const result = await saveModelLocally(modelName, linearModel)
 
-            // if (!fs.existsSync(saveDir)) {
-            //     fs.mkdirSync(saveDir, { recursive: true });
-            // }
-
-            // const savePath = path.join(saveDir, 'romania-consumption-model');
-
-            // const result = await model.save(`file://./romania-consumption-model`);
-
-            // return result;
+            logger(`${modelName} saved on date: ${result?.modelArtifactsInfo?.dateSaved}`)
 
             const yearToPredictTensor = tf.tensor2d([yearToPredict].map(year => (year - yearMin) / (yearMax - yearMin)), [1, 1])
             const prediction = linearModel.predict(yearToPredictTensor)
@@ -106,7 +114,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
 
             if (!generationData) throw new Error("Missing generation data!")
 
-            const modelName = ElectricityConsumptionTable.tableName + " " + country
+            const modelName = ElectricityConsumptionTable.name + " " + country
             const model = buildModel(modelName, 'relu')
 
             let generationMin: number;
@@ -137,6 +145,11 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             await trainModel(model, featureTensor, targetTensor)
 
             logger(`Completed training for ${modelName}`)
+
+            const result = await saveModelLocally(modelName, model)
+
+            logger(`${modelName} saved on date: ${result?.modelArtifactsInfo?.dateSaved}`)
+
             const yearToPredictTensor = tf.tensor2d([yearToPredict].map(year => (year - yearMin) / (yearMax - yearMin)), [1, 1])
             const prediction = model.predict(yearToPredictTensor)
 
@@ -159,7 +172,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
 
             if (!weatherData) throw new Error("Missing weather data!")
 
-            const modelName = WeatherDataTable.tableName + " " + country
+            const modelName = WeatherDataTable.name + " " + country
             const model = buildModel(modelName, 'linear')
 
             let averageTemperatureMin: number;
@@ -191,6 +204,11 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             await trainModel(model, featureTensor, targetTensor)
 
             logger(`Completed training for ${modelName}`)
+
+            const result = await saveModelLocally(modelName, model)
+
+            logger(`${modelName} saved on date: ${result?.modelArtifactsInfo?.dateSaved}`)
+
             const yearToPredictTensor = tf.tensor2d([yearToPredict].map(year => (year - new Date(dateMin).getUTCFullYear()) / (new Date(dateMax).getUTCFullYear() - new Date(dateMin).getUTCFullYear())), [1, 1])
             const prediction = model.predict(yearToPredictTensor)
 
@@ -213,7 +231,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
 
             if (!gdpPerCapitaGrowthData) throw new Error("Missing gdp per capita growth data!")
 
-            const modelName = GdpPerCapitaGrowthTable.tableName + " " + country
+            const modelName = GdpPerCapitaGrowthTable.name + " " + country
             const model = buildModel(modelName, activationIdentifier)
 
             let gdpPerCapitaGrowthMin: number;
@@ -244,6 +262,10 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
 
             logger(`Completed training for ${modelName}`)
 
+            const result = await saveModelLocally(modelName, model)
+
+            logger(`${modelName} saved on date: ${result?.modelArtifactsInfo?.dateSaved}`)
+
             const yearToPredictTensor = tf.tensor2d([yearToPredict].map(year => (year - yearMin) / (yearMax - yearMin)), [1, 1])
             const prediction = model.predict(yearToPredictTensor)
 
@@ -266,7 +288,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
 
             if (!populationGrowthData) throw new Error("Missing population growth data!")
 
-            const modelName = PopulationGrowthTable.tableName + " " + country
+            const modelName = PopulationGrowthTable.name + " " + country
             const model = buildModel(modelName, activationIdentifier)
 
             let populationGrowthMin: number;
@@ -297,6 +319,10 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
 
             logger(`Completed training for ${modelName}`)
 
+            const result = await saveModelLocally(modelName, model)
+
+            logger(`${modelName} saved on date: ${result?.modelArtifactsInfo?.dateSaved}`)
+
             const yearToPredictTensor = tf.tensor2d([yearToPredict].map(year => (year - yearMin) / (yearMax - yearMin)), [1, 1])
             const prediction = model.predict(yearToPredictTensor)
 
@@ -319,7 +345,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
 
             if (!CO2EmissionsData) throw new Error("Missing co2 emissions data!")
 
-            const modelName = PopulationGrowthTable.tableName + " " + country
+            const modelName = PopulationGrowthTable.name + " " + country
             const model = buildModel(modelName, activationIdentifier)
 
             let CO2EmissionshMin: number;
@@ -349,6 +375,10 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             await trainModel(model, featureTensor, targetTensor)
 
             logger(`Completed training for ${modelName}`)
+
+            const result = await saveModelLocally(modelName, model)
+
+            logger(`${modelName} saved on date: ${result?.modelArtifactsInfo?.dateSaved}`)
 
             const yearToPredictTensor = tf.tensor2d([yearToPredict].map(year => (year - yearMin) / (yearMax - yearMin)), [1, 1])
             const prediction = model.predict(yearToPredictTensor)
