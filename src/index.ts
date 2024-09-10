@@ -5,7 +5,7 @@ import cron from 'node-cron'
 import router from './routes'
 import { CO2EmissionsTable, connectDb, deleteSpecificTable, dropAllTables, ElectricityConsumptionTable, ElectricityGenerationTable, GdpPerCapitaGrowthTable, PopulationGrowthTable, WeatherDataTable } from './database/config'
 import logger from './utils/formatLogs'
-import { trainModelsBasedOnTableName } from './training/lr-train-model-based-on-name'
+import { trainModelsBasedOnTableName } from './training/train-model-based-on-name'
 import 'dotenv/config'
 import { ActivationIdentifier } from './types/model'
 
@@ -50,7 +50,7 @@ const start = async () => {
     }
 
     if (trainMode) {
-        const YEAR_TO_PREDICT = 2023
+        const YEAR_TO_PREDICT = 2025
         const COUNTRY = 'Romania'
         const ACTIVATION_IDENTIFIER: ActivationIdentifier = 'linear'
 
@@ -100,8 +100,6 @@ const start = async () => {
 
         if (populationGrowthArg) {
             logger(`Denormalized populationGrowthPrediciton: ${populationGrowthPrediciton}`)
-
-            // 
         }
 
         if (co2EmissionsArg) {

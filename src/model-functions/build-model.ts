@@ -16,7 +16,6 @@ export const buildModel = (name: string, activationIdentifier: ActivationIdentif
     model.add(tf.layers.dense({ units: 1, inputShape: [1], activation: activationIdentifier }));
 
     // Add more hidden layers
-    model.add(tf.layers.dense({ units: 16, activation: 'relu' }));
     model.add(tf.layers.dense({ units: 32, activation: 'relu' }));
     model.add(tf.layers.dense({ units: 16, activation: 'relu' }));
 

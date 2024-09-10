@@ -10,7 +10,7 @@ import logger from '../utils/formatLogs';
 // Labels are used to calculate the loss, which guides the training process. 
 // They must correspond to the outputs that the model is supposed to generate.
 
-export const trainModel = async (model: tf.Sequential, inputTensor: tf.Tensor<tf.Rank>, labelTensor: tf.Tensor<tf.Rank>) => {
+export const trainModel = async (model: tf.Sequential | tf.LayersModel, inputTensor: tf.Tensor<tf.Rank>, labelTensor: tf.Tensor<tf.Rank>) => {
     return await model.fit(inputTensor, labelTensor, {
         // epochs: Integer number of times to iterate over the training data arrays.
         epochs: 10000, // iterations through data by the model
