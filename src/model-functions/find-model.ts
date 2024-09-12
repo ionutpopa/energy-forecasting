@@ -4,7 +4,7 @@ import fs from 'fs'
 import logger from '../utils/formatLogs'
 import { loadModel } from './load-model'
 
-export const findModel: (modelName: string) => Promise<tf.LayersModel> = async (modelName) => {
+export const findModel: (modelName: string) => Promise<tf.LayersModel | undefined> = async (modelName) => {
     const modelDir = path.join(__dirname, '..', 'models');
 
     if (!fs.existsSync(modelDir)) {
@@ -13,14 +13,20 @@ export const findModel: (modelName: string) => Promise<tf.LayersModel> = async (
 
     const modelPath = `file://${modelDir}/${modelName?.replace(" ", "_")?.toLowerCase()}/model.json`
 
-    const model = await loadModel(modelPath)
+    try {
+        const model = await loadModel(modelPath)
 
-    logger(`Loaded model from: ${modelPath}`)
+        logger(`Loaded model from: ${modelPath}`)
 
-    model.compile({
-        optimizer: tf.train.adam(),
-        loss: "meanSquaredError",
-    });
+        model.compile({
+            optimizer: tf.train.adam(),
+            loss: "meanSquaredError",
+        });
 
-    return model
+        return model
+    } catch (error) {
+        logger(JSON.stringify(error, null, 2), 'error')
+
+        return undefined
+    }
 }
