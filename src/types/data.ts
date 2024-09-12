@@ -37,6 +37,7 @@ export type CO2EmissionsDataType = GeneralData & {
 
 export enum DataTypeEnum {
     CONSUMPTION = 'consumption',
+    CONSUMPTION_PER_CAPITA = 'consumption-per-capita',
     GENERATION = 'generation',
     WEATHER = 'weather',
     GDP_PER_CAPITA_GROWTH = 'gdp_per_capita_growth',
