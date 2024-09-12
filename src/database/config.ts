@@ -47,6 +47,21 @@ export const ElectricityConsumptionTable = sequelize.define("ElectricityConsumpt
     }
 }) as ModelCtor<Model<any, any>>
 
+export const ElectricityConsumptionPerCapitaTable = sequelize.define("ElectricityConsumptionPerCapitaTable", {
+    country: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    year: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    consumption: {
+        type: DataTypes.FLOAT,
+        allowNull: true
+    }
+}) as ModelCtor<Model<any, any>>
+
 export const WeatherDataTable = sequelize.define("WeatherDataTable", {
     date: {
         type: DataTypes.DATE,
