@@ -5,28 +5,11 @@ import { buildModel } from '../model-functions/build-model';
 import { ElectricityConsumptionTable, GdpPerCapitaGrowthTable, PopulationGrowthTable, WeatherDataTable } from '../database/config';
 import { Model, ModelCtor } from 'sequelize';
 import { trainModel } from '../model-functions/train-model';
-import path from 'path'
-import * as fs from 'fs'
 import logger from '../utils/formatLogs';
 import { ActivationIdentifier } from '../types/model';
 import "tfjs-node-save"
 import { findModel } from '../model-functions/find-model';
-
-const saveModelLocally = async (modelName: string, model: tf.Sequential | tf.LayersModel) => {
-    const saveDir = path.join(__dirname, '..', 'models');
-
-    if (!fs.existsSync(saveDir)) {
-        fs.mkdirSync(saveDir, { recursive: true });
-    }
-
-    const savePath = `file://${saveDir}/${modelName?.replace(" ", "_")?.toLowerCase()}`
-
-    logger(`savePath: ${savePath}`)
-
-    const result = await model.save(savePath);
-
-    return result;
-}
+import { saveModelLocally } from '../model-functions/save-model';
 
 /**
  * Base function to train models for linear regression
