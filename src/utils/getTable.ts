@@ -4,13 +4,17 @@ import {
     WeatherDataTable,
     GdpPerCapitaGrowthTable,
     PopulationGrowthTable,
-    CO2EmissionsTable
+    CO2EmissionsTable,
+    ElectricityConsumptionPerCapitaTable
 } from "../database/config";
 import { DataTypeEnum } from "../types/data";
 
 export const getTable = (typeOfData: DataTypeEnum) => {
     let table;
     switch (typeOfData) {
+        case DataTypeEnum.CONSUMPTION_PER_CAPITA:
+            table = ElectricityConsumptionPerCapitaTable
+            break
         case DataTypeEnum.CONSUMPTION:
             table = ElectricityConsumptionTable
             break

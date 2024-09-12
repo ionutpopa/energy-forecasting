@@ -6,7 +6,7 @@ import {
   GdpPerCapitaGrowthTable,
   PopulationGrowthTable,
   CO2EmissionsTable,
-  sequelize
+  ElectricityConsumptionPerCapitaTable
 } from "../database/config";
 import { createDynamicRL } from "./createDynamicRL";
 import logger from "./formatLogs";
@@ -14,6 +14,7 @@ import logger from "./formatLogs";
 // Energy consumption in the world file path
 const energyConsumptionFilePath = "primary-energy-cons.csv";
 // values to skip in primary-energy-cons.csv: everything that contains("(EI)") || contains("(EIA)") || contains("(27)") || contains("High-income countries")
+const energyConsumptionPerCapitaFilePath = "per-capita-energy-use.csv";
 // || contains("Low-income countries") || contains("Lower-middle-income countries") || contains("Upper-middle-income countries")
 const energyProductionFilePath = "electricity-generation.csv";
 // values to skip in electricity-generation.csv: same as primary-energy-cons.csv
@@ -27,22 +28,12 @@ const co2EmissionsFilePath = "co2-emissions-per-capita.csv";
 
 // Arrays to store parsed CSV data
 const consumptionData: string[][] = [];
-let isConsumptionDataReady = false;
-
+const consumptionPerCapitaData: string[][] = [];
 const productionData: string[][] = [];
-let isProductionDataReady = false;
-
 const weatherData: string[][] = [];
-let isWeatherDataReady = false;
-
 const gdpData: string[][] = [];
-let isGdpDataReady = false;
-
 const populationData: string[][] = [];
-let isPopulationDataReady = false;
-
 const co2EmissionsData: string[][] = [];
-let isCo2EmissionsDataReady = false;
 
 const filterValue = (value: string) => {
   if (
@@ -142,6 +133,13 @@ const createIfNotExists = async (table: ModelCtor<Model<any, any>>, dataArray: a
   throw new Error('Failed to insert data after maximum retries due to SQLITE_BUSY');
 }
 
+const callbackForLineForConsumptionPerCapitaData = (line: string) => {
+  const filteredValues = filterValues(line)
+
+  // Add values to the csvData array
+  consumptionPerCapitaData.push(filteredValues)
+}
+
 const callbackForLineForConsumptionData = (line: string) => {
   const filteredValues = filterValues(line)
 
@@ -182,6 +180,34 @@ const callbackForLineForCo2EmissionsData = (line: string) => {
   
   // Add values to the csvData array
   co2EmissionsData.push(filteredValues)
+}
+
+const callbackForCloseForConsumptionPerCapitaData = async () => {
+  const arrayToStoreTransformedData = []
+
+  // Remove first array because that's the row with the column names
+  consumptionPerCapitaData.shift()
+
+  for (let i = 0; i < consumptionPerCapitaData?.length; i++) {
+    if (!consumptionPerCapitaData[i]?.[0] || !String(consumptionPerCapitaData[i]?.[0])) continue
+    if (isNaN(parseInt(consumptionPerCapitaData[i]?.[2]))) continue
+
+    const obj = {
+      country: consumptionPerCapitaData[i]?.[0],
+      year: consumptionPerCapitaData[i]?.[2],
+      consumption: consumptionPerCapitaData[i]?.[3]
+    }
+
+    arrayToStoreTransformedData.push(obj)
+  }
+
+  if (arrayToStoreTransformedData.length) {
+    // Store data in database
+    await ElectricityConsumptionPerCapitaTable.bulkCreate(arrayToStoreTransformedData, {
+      updateOnDuplicate: ['year']
+    });
+    logger("Electricity Consuption Per Capita Table Populated!")
+  }
 }
 
 const callbackForCloseForConsumptionData = async () => {
@@ -276,7 +302,7 @@ const callbackForCloseWeatherData = async () => {
 
   if (arrayToStoreTransformedData.length) {
     // Store data in database
-    WeatherDataTable.bulkCreate(arrayToStoreTransformedData, {
+    await WeatherDataTable.bulkCreate(arrayToStoreTransformedData, {
       updateOnDuplicate: ['date', 'country']
     })
     logger("Weather Table Populated!")
@@ -365,6 +391,7 @@ const callbackForCloseForCO2Emission = async () => {
 }
 
 // We will use the readline module to read the file line by line and add it to the database
+createDynamicRL(energyConsumptionPerCapitaFilePath, callbackForLineForConsumptionPerCapitaData, callbackForCloseForConsumptionPerCapitaData);
 createDynamicRL(energyConsumptionFilePath, callbackForLineForConsumptionData, callbackForCloseForConsumptionData);
 createDynamicRL(energyProductionFilePath, callbackForLineForProductionData, callbackForCloseForProductionData);
 createDynamicRL(dailyWeatherFilePath, callbackForLineForWeatherData, callbackForCloseWeatherData);

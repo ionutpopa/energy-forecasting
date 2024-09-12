@@ -2,7 +2,7 @@ import * as tf from '@tensorflow/tfjs'
 import { CO2EmissionsDataType, DataTypeEnum, ElectricityConsumptionDataType, ElectricityGenerationDataType, GdpPerCapitaGrowthDataType, PopulationGrowthDataType, WeatherDataType } from '../types/data'
 import { getAllData } from '../database/getAllData';
 import { buildModel } from '../model-functions/build-model';
-import { ElectricityConsumptionTable, GdpPerCapitaGrowthTable, PopulationGrowthTable, WeatherDataTable } from '../database/config';
+import { ElectricityConsumptionPerCapitaTable, ElectricityConsumptionTable, GdpPerCapitaGrowthTable, PopulationGrowthTable, WeatherDataTable } from '../database/config';
 import { Model, ModelCtor } from 'sequelize';
 import { trainModel } from '../model-functions/train-model';
 import logger from '../utils/formatLogs';
@@ -12,14 +12,18 @@ import { findModel } from '../model-functions/find-model';
 import { saveModelLocally } from '../model-functions/save-model';
 
 /**
- * Base function to train models for linear regression
+ * Base function to predict
  * @param table
+ * @param yearToPredict
+ * @param country
+ * @param activationIdentifier
+ * @param trainMode
  */
-export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, any>>, yearToPredict: number, country: string, activationIdentifier: ActivationIdentifier) => {
+export const predictBasedOnTableName = async (table: ModelCtor<Model<any, any>>, yearToPredict: number, country: string, activationIdentifier: ActivationIdentifier, trainMode: boolean) => {
     let predictionResults = undefined;
 
     switch (table.name) {
-        case "ElectricityConsumptionTable":
+        case "ElectricityConsumptionTable": {
             const consumption = await getAllData(DataTypeEnum.CONSUMPTION, country)
             const countryConsumptionData = consumption?.data
             const consumptionData = countryConsumptionData as ElectricityConsumptionDataType[] | undefined
@@ -51,22 +55,25 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
 
             consumptionMin = Math.min(...consumptionOfConsumption);
             consumptionMax = Math.max(...consumptionOfConsumption);
-            const normalizedConsumption = consumptionOfConsumption.map(c => (c - consumptionMin) / (consumptionMax - consumptionMin));
 
             // Normalize the years
             yearMin = Math.min(...yearsOfConsumption);
             yearMax = Math.max(...yearsOfConsumption);
-            const normalizedYears = yearsOfConsumption.map(year => (year - yearMin) / (yearMax - yearMin));
 
-            const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
+            if (trainMode) {
+                const normalizedConsumption = consumptionOfConsumption.map(c => (c - consumptionMin) / (consumptionMax - consumptionMin));
+                const normalizedYears = yearsOfConsumption.map(year => (year - yearMin) / (yearMax - yearMin));
 
-            // const featureTensor = yearTensor.concat(countryTensors, 1)
-            const featureTensor = yearTensor
-            const targetTensor = tf.tensor2d(normalizedConsumption, [normalizedConsumption.length, 1])
+                const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
 
-            await trainModel(model, featureTensor, targetTensor)
+                // const featureTensor = yearTensor.concat(countryTensors, 1)
+                const featureTensor = yearTensor
+                const targetTensor = tf.tensor2d(normalizedConsumption, [normalizedConsumption.length, 1])
 
-            logger(`Completed training for ${modelName}`)
+                await trainModel(model, featureTensor, targetTensor)
+
+                logger(`Completed training for ${modelName}`)
+            }
 
             if (!loadedModel) {
                 const result = await saveModelLocally(modelName, model)
@@ -94,6 +101,72 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             }).catch((error: any) => {
                 logger(`Error converting tensor to array: ${error}`, 'error');
             });
+        }
+        case "ElectricityConsumptionPerCapitaTable": {
+            const consumption = await getAllData(DataTypeEnum.CONSUMPTION_PER_CAPITA, country)
+            const countryConsumptionData = consumption?.data
+            const consumptionData = countryConsumptionData as ElectricityConsumptionDataType[] | undefined
+
+            if (!consumptionData) throw new Error("Missing consumption per capita data!")
+
+            const modelName = ElectricityConsumptionPerCapitaTable.name + " " + country
+            const loadedModel = await findModel(modelName)
+            let model = loadedModel ? loadedModel : buildModel(modelName, activationIdentifier)
+
+            let consumptionMin: number;
+            let consumptionMax: number;
+
+            let yearMin: number;
+            let yearMax: number;
+
+            const trainData = [...new Set(consumptionData)]
+
+            const yearsOfConsumption = trainData?.map((cons) => Number(cons?.year))
+            const consumptionOfConsumption = trainData?.map((cons) => cons?.consumption as number)
+
+            // Normalize consumption
+            consumptionMin = Math.min(...consumptionOfConsumption);
+            consumptionMax = Math.max(...consumptionOfConsumption);
+
+            // Normalize the years
+            yearMin = Math.min(...yearsOfConsumption);
+            yearMax = Math.max(...yearsOfConsumption);
+
+            if (trainMode) {
+                const normalizedConsumption = consumptionOfConsumption.map(c => (c - consumptionMin) / (consumptionMax - consumptionMin));
+                const normalizedYears = yearsOfConsumption.map(year => (year - yearMin) / (yearMax - yearMin));
+
+                const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
+
+                const featureTensor = yearTensor
+                const targetTensor = tf.tensor2d(normalizedConsumption, [normalizedConsumption.length, 1])
+
+                await trainModel(model, featureTensor, targetTensor)
+
+                logger(`Completed training for ${modelName}`)
+            }
+
+            if (!loadedModel) {
+                const result = await saveModelLocally(modelName, model)
+
+                logger(`${modelName} saved on date: ${result?.modelArtifactsInfo?.dateSaved}`)
+            }
+
+            const yearToPredictTensor = tf.tensor2d([yearToPredict].map(year => (year - yearMin) / (yearMax - yearMin)), [1, 1])
+            const prediction = model.predict(yearToPredictTensor)
+
+            // @ts-ignore
+            return prediction?.array().then(array => {
+                const normalizedValue = array[0][0];
+                const denormalizedValue = normalizedValue * (consumptionMax - consumptionMin) + consumptionMin;
+                
+                predictionResults = denormalizedValue;
+
+                return predictionResults
+            }).catch((error: any) => {
+                logger(`Error converting tensor to array: ${error}`, 'error');
+            });
+        }
         case "ElectricityGenerationTable": {
             const generation = await getAllData(DataTypeEnum.GENERATION, country)
             const countryGenerationData = generation?.data
@@ -118,21 +191,22 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
 
             generationMin = Math.min(...generationOfGeneration);
             generationMax = Math.max(...generationOfGeneration);
-            
-            const normalizedGeneration = generationOfGeneration.map(g => (g - generationMin) / (generationMax - generationMin));
-            
+
             yearMin = Math.min(...yearsOfGeneration);
             yearMax = Math.max(...yearsOfGeneration);
-            
-            const normalizedYears = yearsOfGeneration.map(year => (year - yearMin) / (yearMax - yearMin));
-            
-            const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
-            const featureTensor = yearTensor
-            const targetTensor = tf.tensor2d(normalizedGeneration, [normalizedGeneration.length, 1])
 
-            await trainModel(model, featureTensor, targetTensor)
+            if (trainMode) {
+                const normalizedGeneration = generationOfGeneration.map(g => (g - generationMin) / (generationMax - generationMin));
+                const normalizedYears = yearsOfGeneration.map(year => (year - yearMin) / (yearMax - yearMin));
 
-            logger(`Completed training for ${modelName}`)
+                const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
+                const featureTensor = yearTensor
+                const targetTensor = tf.tensor2d(normalizedGeneration, [normalizedGeneration.length, 1])
+
+                await trainModel(model, featureTensor, targetTensor)
+
+                logger(`Completed training for ${modelName}`)
+            }
 
             if (!loadedModel) {
                 const result = await saveModelLocally(modelName, model)
@@ -147,7 +221,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             return prediction?.array().then(array => {
                 const normalizedValue = array[0][0]; // Extract the value
                 const denormalizedValue = normalizedValue * (generationMax - generationMin) + generationMin;
-                
+
                 predictionResults = denormalizedValue;
 
                 return predictionResults
@@ -183,18 +257,20 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             averageTemperatureMin = Math.min(...avreageTemperatureOfWeather);
             averageTemperatureMax = Math.max(...avreageTemperatureOfWeather);
 
-            const normalizedDates = datesOfWeather.map(date => (date - dateMin) / (dateMax - dateMin));
-            const normalizedAverageTemperature = avreageTemperatureOfWeather.map(a => (a - averageTemperatureMin) / (averageTemperatureMax - averageTemperatureMin));
+            if (trainMode) {
+                const normalizedDates = datesOfWeather.map(date => (date - dateMin) / (dateMax - dateMin));
+                const normalizedAverageTemperature = avreageTemperatureOfWeather.map(a => (a - averageTemperatureMin) / (averageTemperatureMax - averageTemperatureMin));
 
-            // averageTemperature will be the variable we want to predict here for now
+                // averageTemperature will be the variable we want to predict here for now
 
-            const yearTensor = tf.tensor2d(normalizedDates, [normalizedDates.length, 1])
-            const featureTensor = yearTensor
-            const targetTensor = tf.tensor2d(normalizedAverageTemperature, [normalizedAverageTemperature.length, 1])
+                const yearTensor = tf.tensor2d(normalizedDates, [normalizedDates.length, 1])
+                const featureTensor = yearTensor
+                const targetTensor = tf.tensor2d(normalizedAverageTemperature, [normalizedAverageTemperature.length, 1])
 
-            await trainModel(model, featureTensor, targetTensor)
+                await trainModel(model, featureTensor, targetTensor)
 
-            logger(`Completed training for ${modelName}`)
+                logger(`Completed training for ${modelName}`)
+            }
 
             if (!loadedModel) {
                 const result = await saveModelLocally(modelName, model)
@@ -209,7 +285,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             return prediction?.array().then(array => {
                 const normalizedValue = array[0][0]; // Extract the value
                 const denormalizedValue = normalizedValue * (averageTemperatureMax - averageTemperatureMin) + averageTemperatureMin;
-                
+
                 predictionResults = denormalizedValue;
 
                 return predictionResults
@@ -245,16 +321,18 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             gdpPerCapitaGrowthMin = Math.min(...gdpPerCapitaGrowthOfGdpPerCapitaGrowthData);
             gdpPerCapitaGrowthMax = Math.max(...gdpPerCapitaGrowthOfGdpPerCapitaGrowthData);
 
-            const normalizedYears = yearsOfGdpPerCapitaGrowthData.map(year => (year - yearMin) / (yearMax - yearMin));
-            const normalizedGdpPerCapitaGrowthData = gdpPerCapitaGrowthOfGdpPerCapitaGrowthData.map(g => (g - gdpPerCapitaGrowthMin) / (gdpPerCapitaGrowthMax - gdpPerCapitaGrowthMin));
+            if (trainMode) {
+                const normalizedYears = yearsOfGdpPerCapitaGrowthData.map(year => (year - yearMin) / (yearMax - yearMin));
+                const normalizedGdpPerCapitaGrowthData = gdpPerCapitaGrowthOfGdpPerCapitaGrowthData.map(g => (g - gdpPerCapitaGrowthMin) / (gdpPerCapitaGrowthMax - gdpPerCapitaGrowthMin));
 
-            const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
-            const featureTensor = yearTensor
-            const targetTensor = tf.tensor2d(normalizedGdpPerCapitaGrowthData, [normalizedGdpPerCapitaGrowthData.length, 1])
+                const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
+                const featureTensor = yearTensor
+                const targetTensor = tf.tensor2d(normalizedGdpPerCapitaGrowthData, [normalizedGdpPerCapitaGrowthData.length, 1])
 
-            await trainModel(model, featureTensor, targetTensor)
+                await trainModel(model, featureTensor, targetTensor)
 
-            logger(`Completed training for ${modelName}`)
+                logger(`Completed training for ${modelName}`)
+            }
 
             if (!loadedModel) {
                 const result = await saveModelLocally(modelName, model)
@@ -269,7 +347,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             return prediction?.array().then(array => {
                 const normalizedValue = array[0][0];
                 const denormalizedValue = normalizedValue * (gdpPerCapitaGrowthMax - gdpPerCapitaGrowthMin) + gdpPerCapitaGrowthMin;
-                
+
                 predictionResults = denormalizedValue;
 
                 return predictionResults
@@ -305,16 +383,18 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             populationGrowthMin = Math.min(...populationGrowthOfPopulationGrowthData);
             populationGrowthMax = Math.max(...populationGrowthOfPopulationGrowthData);
 
-            const normalizedYears = yearsOfPopulationGrowthData.map(year => (year - yearMin) / (yearMax - yearMin));
-            const normalizedPopulationGrowthData = populationGrowthOfPopulationGrowthData.map(p => (p - populationGrowthMin) / (populationGrowthMax - populationGrowthMin));
+            if (trainMode) {
+                const normalizedYears = yearsOfPopulationGrowthData.map(year => (year - yearMin) / (yearMax - yearMin));
+                const normalizedPopulationGrowthData = populationGrowthOfPopulationGrowthData.map(p => (p - populationGrowthMin) / (populationGrowthMax - populationGrowthMin));
 
-            const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
-            const featureTensor = yearTensor
-            const targetTensor = tf.tensor2d(normalizedPopulationGrowthData, [normalizedPopulationGrowthData.length, 1])
+                const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
+                const featureTensor = yearTensor
+                const targetTensor = tf.tensor2d(normalizedPopulationGrowthData, [normalizedPopulationGrowthData.length, 1])
 
-            await trainModel(model, featureTensor, targetTensor)
+                await trainModel(model, featureTensor, targetTensor)
 
-            logger(`Completed training for ${modelName}`)
+                logger(`Completed training for ${modelName}`)
+            }
 
             if (!loadedModel) {
                 const result = await saveModelLocally(modelName, model)
@@ -329,7 +409,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             return prediction?.array().then(array => {
                 const normalizedValue = array[0][0];
                 const denormalizedValue = normalizedValue * (populationGrowthMax - populationGrowthMin) + populationGrowthMin;
-                
+
                 predictionResults = denormalizedValue;
 
                 return predictionResults
@@ -365,16 +445,18 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             CO2EmissionshMin = Math.min(...CO2EmissionsOfCO2EmissionsData);
             CO2EmissionsMax = Math.max(...CO2EmissionsOfCO2EmissionsData);
 
-            const normalizedYears = yearsOfCO2EmissionsData.map(year => (year - yearMin) / (yearMax - yearMin));
-            const normalizedCO2Emissions = CO2EmissionsOfCO2EmissionsData.map(c => (c - CO2EmissionshMin) / (CO2EmissionsMax - CO2EmissionshMin));
+            if (trainMode) {
+                const normalizedYears = yearsOfCO2EmissionsData.map(year => (year - yearMin) / (yearMax - yearMin));
+                const normalizedCO2Emissions = CO2EmissionsOfCO2EmissionsData.map(c => (c - CO2EmissionshMin) / (CO2EmissionsMax - CO2EmissionshMin));
 
-            const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
-            const featureTensor = yearTensor
-            const targetTensor = tf.tensor2d(normalizedCO2Emissions, [normalizedCO2Emissions.length, 1])
+                const yearTensor = tf.tensor2d(normalizedYears, [normalizedYears.length, 1])
+                const featureTensor = yearTensor
+                const targetTensor = tf.tensor2d(normalizedCO2Emissions, [normalizedCO2Emissions.length, 1])
 
-            await trainModel(model, featureTensor, targetTensor)
+                await trainModel(model, featureTensor, targetTensor)
 
-            logger(`Completed training for ${modelName}`)
+                logger(`Completed training for ${modelName}`)
+            }
 
             if (!loadedModel) {
                 const result = await saveModelLocally(modelName, model)
@@ -389,7 +471,7 @@ export const trainModelsBasedOnTableName = async (table: ModelCtor<Model<any, an
             return prediction?.array().then(array => {
                 const normalizedValue = array[0][0];
                 const denormalizedValue = normalizedValue * (CO2EmissionsMax - CO2EmissionshMin) + CO2EmissionshMin;
-                
+
                 predictionResults = denormalizedValue;
 
                 return predictionResults
