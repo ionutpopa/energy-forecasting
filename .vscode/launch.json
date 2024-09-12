@@ -11,10 +11,15 @@
                 // "debug",
                 // "drop-all",
                 // "parse-all-data",
-                "build-and-train",
-                "consumption",
+                "predict-mode",
+                "train-mode",
+                "consumption-per-capita",
+                // "consumption",
+                // "generation",
+                // "weather",
+                // "gdp-growth",
                 // "population-growth",
-                // "generation"
+                // "co2-emissions"
             ],
             "cwd": "${workspaceFolder}",
             "outFiles": [
