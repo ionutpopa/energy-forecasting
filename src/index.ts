@@ -1,8 +1,5 @@
-import express from 'express'
-import cors from 'cors'
 // @ts-ignore
 import cron from 'node-cron'
-import router from './routes'
 import { CO2EmissionsTable, connectDb, deleteSpecificTable, dropAllTables, ElectricityConsumptionPerCapitaTable, ElectricityConsumptionTable, ElectricityGenerationTable, GdpPerCapitaGrowthTable, PopulationGrowthTable, WeatherDataTable } from './database/config'
 import logger from './utils/formatLogs'
 import { predictBasedOnTableName } from './training/train-model-based-on-name'
@@ -25,14 +22,10 @@ const GDP_GROWTH_ARG = args?.includes('gdp-growth')
 const POPULATION_GROWTH_ARG = args?.includes('population-growth')
 const CO2_EMISSIONS_ARG = args?.includes('co2-emissions')
 
-const app = express()
-app.use(cors())
-app.use(express.json())
-
-app.use('/', router)
-
 const start = async () => {
-    // Import the database configuration
+
+    try {
+        // Import the database configuration
     await connectDb();
 
     const ALL_TABLES = [ElectricityConsumptionTable, ElectricityGenerationTable, WeatherDataTable, GdpPerCapitaGrowthTable, PopulationGrowthTable, CO2EmissionsTable, ElectricityConsumptionPerCapitaTable]
@@ -114,17 +107,15 @@ const start = async () => {
         if (consumptionPerCapitaPrediction) {
             logger(`Denormalized consumptionPerCapitaPrediction: ${consumptionPerCapitaPrediction}`)
         }
-
-        // Close the app
+    }
+    } catch (error) {
+        logger(`There was an error at start function: ${JSON.stringify(error, null, 2)}`, 'error')
+        logger('App is closing', 'info')
         process.exit(0)
     }
 }
 
 start()
-
-app.listen(process.env.PORT || 3000, () => {
-    console.log('Server is running on port 3000')
-})
 
 // This will run every day at 12:00 to get the newest data in our database
 cron.schedule('0 12 * * *', () => {

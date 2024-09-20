@@ -1,12 +1,9 @@
 import * as tf from '@tensorflow/tfjs';
 import { ActivationIdentifier } from '../types/model';
 
-
 export const buildModel = (name: string, activationIdentifier: ActivationIdentifier) => {
     let model: tf.Sequential;
-    // Creates a tf.Sequential model. 
-    // A sequential model is any model where the outputs of one layer are the inputs to the next layer, 
-    // i.e. the model topology is a simple 'stack' of layers, with no branching or skipping.
+
     model = tf.sequential({
         name: name
     });

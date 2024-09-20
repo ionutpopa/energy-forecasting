@@ -4,7 +4,7 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Forecasting.js",
+            "name": "Forecasting Ion A.I.",
             "runtimeArgs": [ "-r", "ts-node/register" ],
             "args": [
                 "${workspaceFolder}/src/index.ts",
@@ -27,6 +27,22 @@
             ],
             "env": {
                 "MAX_RETRIES": "10",
+            }
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Forecasting Ion A.I. Server",
+            "runtimeArgs": [ "-r", "ts-node/register" ],
+            "args": [
+                "${workspaceFolder}/src/server.ts",
+            ],
+            "cwd": "${workspaceFolder}",
+            "outFiles": [
+                "${workspaceFolder}/**/*.js"
+            ],
+            "env": {
+                "PORT": "8181",
             }
         }
     ]
