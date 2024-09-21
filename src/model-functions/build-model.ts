@@ -23,5 +23,6 @@ export const buildModel = (name: string, activationIdentifier: ActivationIdentif
         optimizer: tf.train.adam(),
         loss: "meanSquaredError",
     });
+
     return model;
 }
