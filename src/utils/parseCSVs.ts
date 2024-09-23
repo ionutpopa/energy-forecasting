@@ -10,6 +10,9 @@ import {
 } from "../database/config";
 import { createDynamicRL } from "./createDynamicRL";
 import logger from "./formatLogs";
+import path from "path";
+import cp from 'child_process'
+import fs from 'fs'
 
 // Energy consumption in the world file path
 const energyConsumptionFilePath = "primary-energy-cons.csv";
@@ -183,31 +186,48 @@ const callbackForLineForCo2EmissionsData = (line: string) => {
 }
 
 const callbackForCloseForConsumptionPerCapitaData = async () => {
-  const arrayToStoreTransformedData = []
+  // const arrayToStoreTransformedData = []
 
   // Remove first array because that's the row with the column names
   consumptionPerCapitaData.shift()
+  try {
+    const tempFilePath = path.resolve("./src/utils/temp")
 
-  for (let i = 0; i < consumptionPerCapitaData?.length; i++) {
-    if (!consumptionPerCapitaData[i]?.[0] || !String(consumptionPerCapitaData[i]?.[0])) continue
-    if (isNaN(parseInt(consumptionPerCapitaData[i]?.[2]))) continue
-
-    const obj = {
-      country: consumptionPerCapitaData[i]?.[0],
-      year: consumptionPerCapitaData[i]?.[2],
-      consumption: consumptionPerCapitaData[i]?.[3]
+    if (!fs.existsSync(tempFilePath)) {
+      await fs.promises.mkdir(tempFilePath, { recursive: true })
     }
 
-    arrayToStoreTransformedData.push(obj)
+    const jsonString = JSON.stringify(consumptionPerCapitaData, null, 2);
+    const pathToWrite = path.join(tempFilePath, `${ElectricityConsumptionPerCapitaTable.name}.json`)
+
+    await fs.promises.writeFile(pathToWrite, jsonString, { encoding: 'utf-8' })
+
+    const execRes = cp.execSync(`python ./src/utils/parseCSVs.py database.sqlite ${ElectricityConsumptionPerCapitaTable.name}`, { cwd: process.cwd() })
+    logger(`stdout: ${execRes.toString()}`)
+  } catch (error) {
+    logger(`Error running python parsing: ${error}`, 'error')
   }
 
-  if (arrayToStoreTransformedData.length) {
-    // Store data in database
-    await ElectricityConsumptionPerCapitaTable.bulkCreate(arrayToStoreTransformedData, {
-      updateOnDuplicate: ['year']
-    });
-    logger("Electricity Consuption Per Capita Table Populated!")
-  }
+  // for (let i = 0; i < consumptionPerCapitaData?.length; i++) {
+  //   if (!consumptionPerCapitaData[i]?.[0] || !String(consumptionPerCapitaData[i]?.[0])) continue
+  //   if (isNaN(parseInt(consumptionPerCapitaData[i]?.[2]))) continue
+
+  //   const obj = {
+  //     country: consumptionPerCapitaData[i]?.[0],
+  //     year: consumptionPerCapitaData[i]?.[2],
+  //     consumption: consumptionPerCapitaData[i]?.[3]
+  //   }
+
+  //   arrayToStoreTransformedData.push(obj)
+  // }
+
+  // if (arrayToStoreTransformedData.length) {
+  //   // Store data in database
+  //   await ElectricityConsumptionPerCapitaTable.bulkCreate(arrayToStoreTransformedData, {
+  //     updateOnDuplicate: ['year']
+  //   });
+  //   logger("Electricity Consuption Per Capita Table Populated!")
+  // }
 }
 
 const callbackForCloseForConsumptionData = async () => {
@@ -392,9 +412,9 @@ const callbackForCloseForCO2Emission = async () => {
 
 // We will use the readline module to read the file line by line and add it to the database
 createDynamicRL(energyConsumptionPerCapitaFilePath, callbackForLineForConsumptionPerCapitaData, callbackForCloseForConsumptionPerCapitaData);
-createDynamicRL(energyConsumptionFilePath, callbackForLineForConsumptionData, callbackForCloseForConsumptionData);
-createDynamicRL(energyProductionFilePath, callbackForLineForProductionData, callbackForCloseForProductionData);
-createDynamicRL(dailyWeatherFilePath, callbackForLineForWeatherData, callbackForCloseWeatherData);
-createDynamicRL(gdpPerCapitaFilePath, callbackForLineForGDPData, callbackForCloseForGdpPerCapitaData);
-createDynamicRL(populationFilePath, callbackForLineForPopulationData, callbackForCloseForPopulationGrowth);
-createDynamicRL(co2EmissionsFilePath, callbackForLineForCo2EmissionsData, callbackForCloseForCO2Emission);
+// createDynamicRL(energyConsumptionFilePath, callbackForLineForConsumptionData, callbackForCloseForConsumptionData);
+// createDynamicRL(energyProductionFilePath, callbackForLineForProductionData, callbackForCloseForProductionData);
+// createDynamicRL(dailyWeatherFilePath, callbackForLineForWeatherData, callbackForCloseWeatherData);
+// createDynamicRL(gdpPerCapitaFilePath, callbackForLineForGDPData, callbackForCloseForGdpPerCapitaData);
+// createDynamicRL(populationFilePath, callbackForLineForPopulationData, callbackForCloseForPopulationGrowth);
+// createDynamicRL(co2EmissionsFilePath, callbackForLineForCo2EmissionsData, callbackForCloseForCO2Emission);
