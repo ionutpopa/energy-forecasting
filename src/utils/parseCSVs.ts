@@ -186,8 +186,6 @@ const callbackForLineForCo2EmissionsData = (line: string) => {
 }
 
 const callbackForCloseForConsumptionPerCapitaData = async () => {
-  // const arrayToStoreTransformedData = []
-
   // Remove first array because that's the row with the column names
   consumptionPerCapitaData.shift()
   try {
@@ -207,53 +205,27 @@ const callbackForCloseForConsumptionPerCapitaData = async () => {
   } catch (error) {
     logger(`Error running python parsing: ${error}`, 'error')
   }
-
-  // for (let i = 0; i < consumptionPerCapitaData?.length; i++) {
-  //   if (!consumptionPerCapitaData[i]?.[0] || !String(consumptionPerCapitaData[i]?.[0])) continue
-  //   if (isNaN(parseInt(consumptionPerCapitaData[i]?.[2]))) continue
-
-  //   const obj = {
-  //     country: consumptionPerCapitaData[i]?.[0],
-  //     year: consumptionPerCapitaData[i]?.[2],
-  //     consumption: consumptionPerCapitaData[i]?.[3]
-  //   }
-
-  //   arrayToStoreTransformedData.push(obj)
-  // }
-
-  // if (arrayToStoreTransformedData.length) {
-  //   // Store data in database
-  //   await ElectricityConsumptionPerCapitaTable.bulkCreate(arrayToStoreTransformedData, {
-  //     updateOnDuplicate: ['year']
-  //   });
-  //   logger("Electricity Consuption Per Capita Table Populated!")
-  // }
 }
 
 const callbackForCloseForConsumptionData = async () => {
-  const arrayToStoreTransformedData = []
-
   // Remove first array because that's the row with the column names
-  consumptionData.shift()
+  consumptionPerCapitaData.shift()
+  try {
+    const tempFilePath = path.resolve("./src/utils/temp")
 
-  for (let i = 0; i < consumptionData?.length; i++) {
-    if (!consumptionData[i]?.[0] || !String(consumptionData[i]?.[0])) continue
-    if (isNaN(parseInt(consumptionData[i]?.[1]))) continue
-    const obj = {
-      country: consumptionData[i]?.[0],
-      year: consumptionData[i]?.[1],
-      consumption: consumptionData[i]?.[2]
+    if (!fs.existsSync(tempFilePath)) {
+      await fs.promises.mkdir(tempFilePath, { recursive: true })
     }
 
-    arrayToStoreTransformedData.push(obj)
-  }
+    const jsonString = JSON.stringify(consumptionPerCapitaData, null, 2);
+    const pathToWrite = path.join(tempFilePath, `${ElectricityConsumptionTable.name}.json`)
 
-  if (arrayToStoreTransformedData.length) {
-    // Store data in database
-    await ElectricityConsumptionTable.bulkCreate(arrayToStoreTransformedData, {
-      updateOnDuplicate: ['year']
-    });
-    logger("Electricity Consuption Table Populated!")
+    await fs.promises.writeFile(pathToWrite, jsonString, { encoding: 'utf-8' })
+
+    const execRes = cp.execSync(`python ./src/utils/parseCSVs.py database.sqlite ${ElectricityConsumptionTable.name}`, { cwd: process.cwd() })
+    logger(`stdout: ${execRes.toString()}`)
+  } catch (error) {
+    logger(`Error running python parsing: ${error}`, 'error')
   }
 }
 
@@ -412,7 +384,7 @@ const callbackForCloseForCO2Emission = async () => {
 
 // We will use the readline module to read the file line by line and add it to the database
 createDynamicRL(energyConsumptionPerCapitaFilePath, callbackForLineForConsumptionPerCapitaData, callbackForCloseForConsumptionPerCapitaData);
-// createDynamicRL(energyConsumptionFilePath, callbackForLineForConsumptionData, callbackForCloseForConsumptionData);
+createDynamicRL(energyConsumptionFilePath, callbackForLineForConsumptionData, callbackForCloseForConsumptionData);
 // createDynamicRL(energyProductionFilePath, callbackForLineForProductionData, callbackForCloseForProductionData);
 // createDynamicRL(dailyWeatherFilePath, callbackForLineForWeatherData, callbackForCloseWeatherData);
 // createDynamicRL(gdpPerCapitaFilePath, callbackForLineForGDPData, callbackForCloseForGdpPerCapitaData);

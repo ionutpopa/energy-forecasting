@@ -5,7 +5,6 @@ import logger from './utils/formatLogs'
 import { predictBasedOnTableName } from './training/train-model-based-on-name'
 import 'dotenv/config'
 import { ActivationIdentifier } from './types/model'
-import path from 'path'
 
 const args = process.argv?.slice(2); // Get command-line arguments, excluding the first two that are probably 'node' and the script name
 
@@ -26,7 +25,7 @@ const CO2_EMISSIONS_ARG = args?.includes('co2-emissions')
 const start = async () => {
 
     try {
-        // Import the database configuration
+    // Import the database configuration
     await connectDb();
 
     const ALL_TABLES = [ElectricityConsumptionTable, ElectricityGenerationTable, WeatherDataTable, GdpPerCapitaGrowthTable, PopulationGrowthTable, CO2EmissionsTable, ElectricityConsumptionPerCapitaTable]
