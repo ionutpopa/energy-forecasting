@@ -13,6 +13,7 @@ import logger from "./formatLogs";
 import path from "path";
 import cp from 'child_process'
 import fs from 'fs'
+import os from 'os'
 
 // Energy consumption in the world file path
 const energyConsumptionFilePath = "primary-energy-cons.csv";
@@ -249,155 +250,110 @@ const callbackForCloseForProductionData = async () => {
   } catch (error) {
     logger(`Error running python parsing: ${error}`, 'error')
   }
-  // const arrayToStoreTransformedData = []
-
-  // // Remove first array because that's the row with the column names
-  // productionData.shift()
-
-  // for (let i = 0; i < productionData?.length; i++) {
-  //   if (!productionData[i]?.[0] || !String(productionData[i]?.[0])) continue
-  //   if (isNaN(parseInt(productionData[i]?.[1]))) continue
-  //   const obj = {
-  //     country: productionData[i]?.[0],
-  //     year: productionData[i]?.[1],
-  //     generation: productionData[i]?.[2]
-  //   }
-
-  //   arrayToStoreTransformedData.push(obj)
-  // }
-
-  // if (arrayToStoreTransformedData.length) {
-  //   // Store data in database
-  //   await ElectricityGenerationTable.bulkCreate(arrayToStoreTransformedData, {
-  //     updateOnDuplicate: ['year']
-  //   });
-  //   logger("Electricity Production Table Populated!")
-  // }
 }
 
 const callbackForCloseWeatherData = async () => {
-  const arrayToStoreTransformedData = []
-
-  // Remove first array because that's the row with the column names
   weatherData.shift()
+  try {
+    const tempFilePath = path.resolve("./src/utils/temp")
 
-  for (let i = 0; i < weatherData?.length; i++) {
-    if (isNaN(new Date(weatherData[i]?.[0]).getTime())) continue
-    if (isNaN(Number(weatherData?.[i]?.[4]))) continue
-
-    const date = weatherData?.[i]?.[0]; // 'e.g.: 22-05-2020'
-    const country = weatherData?.[i]?.[1];
-    const latitude = weatherData?.[i]?.[2];
-    const longitude = weatherData?.[i]?.[3];
-    const averageTemperature = weatherData?.[i]?.[4];
-    const minTemperature = weatherData?.[i]?.[5];
-    const maxTemperature = weatherData?.[i]?.[6];
-    // const windDirection = weatherData?.[i]?.[7];
-    const windSpeed = weatherData?.[i]?.[8];
-    const pressure = weatherData?.[i]?.[9]; // hectopascal hPa
-    
-    const weatherDataObj = {
-      date,
-      country,
-      latitude: Number(latitude),
-      longitude: Number(longitude),
-      averageTemperature: Number(averageTemperature),
-      minTemperature: Number(minTemperature),
-      maxTemperature: Number(maxTemperature),
-      windSpeed: Number(windSpeed),
-      pressure: Number(pressure)
+    if (!fs.existsSync(tempFilePath)) {
+      await fs.promises.mkdir(tempFilePath, { recursive: true })
     }
 
-    arrayToStoreTransformedData.push(weatherDataObj)
-  }
+    const pathToWrite = path.join(tempFilePath, `${WeatherDataTable.name}.json`)
 
-  if (arrayToStoreTransformedData.length) {
-    // Store data in database
-    await WeatherDataTable.bulkCreate(arrayToStoreTransformedData, {
-      updateOnDuplicate: ['date', 'country']
-    })
-    logger("Weather Table Populated!")
+    if (!fs.existsSync(pathToWrite)) {
+      for (const [i, data] of weatherData.entries()) {
+        if (i !==  weatherData.length - 1) {
+          if (i === 0) {
+            fs.appendFileSync(pathToWrite, '[' + os.EOL, { encoding: 'utf-8' })
+          }
+          fs.appendFileSync(pathToWrite, `${JSON.stringify(data)},` + os.EOL, { encoding: 'utf-8' })
+        } else {
+          fs.appendFileSync(pathToWrite, JSON.stringify(data) + os.EOL, { encoding: 'utf-8' })
+          fs.appendFileSync(pathToWrite, ']', { encoding: 'utf-8' })
+        }
+      }
+    }
+
+    logger('Finished creating temp for weather data')
+    const pathToCall = path.join('./src', 'utils', 'parseCSVs.py')
+    console.log(`python ${pathToCall} database.sqlite ${WeatherDataTable.name}`)
+
+    const execRes = cp.execSync(`python ${pathToCall} database.sqlite ${WeatherDataTable.name}`, { cwd: process.cwd() })
+    logger(`stdo/ut: ${execRes.toString()}`)
+  } catch (error) {
+    logger(`Error running python parsing: ${error}`, 'error')
   }
 }
 
 const callbackForCloseForGdpPerCapitaData = async () => {
-  const arrayToStoreTransformedData = []
-
   // Remove first array because that's the row with the column names
   gdpData.shift()
 
-  for (let i = 0; i < gdpData?.length; i++) {
-    if (!gdpData[i]?.[0]) continue
-    if (isNaN(parseInt(gdpData[i]?.[1]))) continue
-    const obj = {
-      country: gdpData[i]?.[0],
-      year: Number(gdpData[i]?.[1]),
-      gdpPerCapitaGrowth: Number(gdpData[i]?.[2]) // annual %
+  try {
+    const tempFilePath = path.resolve("./src/utils/temp")
+
+    if (!fs.existsSync(tempFilePath)) {
+      await fs.promises.mkdir(tempFilePath, { recursive: true })
     }
 
-    arrayToStoreTransformedData.push(obj)
-  }
+    const jsonString = JSON.stringify(gdpData, null, 2);
+    const pathToWrite = path.join(tempFilePath, `${GdpPerCapitaGrowthTable.name}.json`)
 
-  if (arrayToStoreTransformedData.length) {
-    // Store data in database
-    await GdpPerCapitaGrowthTable.bulkCreate(arrayToStoreTransformedData, {
-      updateOnDuplicate: ['year']
-    })
-    logger("Gdp Per Capita Growth Table Populated!")
+    await fs.promises.writeFile(pathToWrite, jsonString, { encoding: 'utf-8' })
+
+    const execRes = cp.execSync(`python ./src/utils/parseCSVs.py database.sqlite ${GdpPerCapitaGrowthTable.name}`, { cwd: process.cwd() })
+    logger(`stdout: ${execRes.toString()}`)
+  } catch (error) {
+    logger(`Error running python parsing: ${error}`, 'error')
   }
 }
 
 const callbackForCloseForPopulationGrowth = async () => {
-  const arrayToStoreTransformedData = []
-
   // Remove first array because that's the row with the column names
   populationData.shift()
 
-  for (let i = 0; i < populationData?.length; i++) {
-    if (parseInt(populationData[i]?.[0])) continue
-    if (isNaN(parseInt(populationData[i]?.[1]))) continue
-    const obj = {
-      country: populationData[i]?.[0],
-      year: Number(populationData[i]?.[1]),
-      population: Number(populationData[i]?.[2]) // annual %
+  try {
+    const tempFilePath = path.resolve("./src/utils/temp")
+
+    if (!fs.existsSync(tempFilePath)) {
+      await fs.promises.mkdir(tempFilePath, { recursive: true })
     }
 
-    arrayToStoreTransformedData.push(obj)
-  }
+    const jsonString = JSON.stringify(gdpData, null, 2);
+    const pathToWrite = path.join(tempFilePath, `${PopulationGrowthTable.name}.json`)
 
-  if (arrayToStoreTransformedData.length) {
-    // Store data in database
-    await PopulationGrowthTable.bulkCreate(arrayToStoreTransformedData, {
-      updateOnDuplicate: ['year']
-    })
-    logger("Population Growth Table Populated!")
+    await fs.promises.writeFile(pathToWrite, jsonString, { encoding: 'utf-8' })
+
+    const execRes = cp.execSync(`python ./src/utils/parseCSVs.py database.sqlite ${PopulationGrowthTable.name}`, { cwd: process.cwd() })
+    logger(`stdout: ${execRes.toString()}`)
+  } catch (error) {
+    logger(`Error running python parsing: ${error}`, 'error')
   }
 }
 
 const callbackForCloseForCO2Emission = async () => {
-  const arrayToStoreTransformedData = []
-
   // Remove first array because that's the row with the column names
   co2EmissionsData.shift()
 
-  for (let i = 0; i < co2EmissionsData?.length; i++) {
-    if (parseInt(co2EmissionsData[i]?.[0])) continue
-    if (isNaN(parseInt(co2EmissionsData[i]?.[1]))) continue
-    const obj = {
-      country: co2EmissionsData[i]?.[0],
-      year: Number(co2EmissionsData[i]?.[1]),
-      co2Emissions: Number(co2EmissionsData[i]?.[2]) // per capita (per person)
+  try {
+    const tempFilePath = path.resolve("./src/utils/temp")
+
+    if (!fs.existsSync(tempFilePath)) {
+      await fs.promises.mkdir(tempFilePath, { recursive: true })
     }
 
-    arrayToStoreTransformedData.push(obj)
-  }
+    const jsonString = JSON.stringify(gdpData, null, 2);
+    const pathToWrite = path.join(tempFilePath, `${CO2EmissionsTable.name}.json`)
 
-  if (arrayToStoreTransformedData.length) {
-    // Store data in database
-    await CO2EmissionsTable.bulkCreate(arrayToStoreTransformedData, {
-      updateOnDuplicate: ['year']
-    })
-    logger("CO2 Emissions Table Populated!")
+    await fs.promises.writeFile(pathToWrite, jsonString, { encoding: 'utf-8' })
+
+    const execRes = cp.execSync(`python ./src/utils/parseCSVs.py database.sqlite ${CO2EmissionsTable.name}`, { cwd: process.cwd() })
+    logger(`stdout: ${execRes.toString()}`)
+  } catch (error) {
+    logger(`Error running python parsing: ${error}`, 'error')
   }
 }
 
@@ -405,7 +361,7 @@ const callbackForCloseForCO2Emission = async () => {
 createDynamicRL(energyConsumptionPerCapitaFilePath, callbackForLineForConsumptionPerCapitaData, callbackForCloseForConsumptionPerCapitaData);
 createDynamicRL(energyConsumptionFilePath, callbackForLineForConsumptionData, callbackForCloseForConsumptionData);
 createDynamicRL(energyProductionFilePath, callbackForLineForProductionData, callbackForCloseForProductionData);
-// createDynamicRL(dailyWeatherFilePath, callbackForLineForWeatherData, callbackForCloseWeatherData);
-// createDynamicRL(gdpPerCapitaFilePath, callbackForLineForGDPData, callbackForCloseForGdpPerCapitaData);
-// createDynamicRL(populationFilePath, callbackForLineForPopulationData, callbackForCloseForPopulationGrowth);
-// createDynamicRL(co2EmissionsFilePath, callbackForLineForCo2EmissionsData, callbackForCloseForCO2Emission);
+createDynamicRL(dailyWeatherFilePath, callbackForLineForWeatherData, callbackForCloseWeatherData);
+createDynamicRL(gdpPerCapitaFilePath, callbackForLineForGDPData, callbackForCloseForGdpPerCapitaData);
+createDynamicRL(populationFilePath, callbackForLineForPopulationData, callbackForCloseForPopulationGrowth);
+createDynamicRL(co2EmissionsFilePath, callbackForLineForCo2EmissionsData, callbackForCloseForCO2Emission);

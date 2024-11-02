@@ -64,7 +64,7 @@ export const getAllData = async (
     try {
         // Call the original getData function
         const result = await getData(typeOfData, country, page, pageSize, year, sortOrder);
-        
+
         if (!result) {
             return undefined;
         }
