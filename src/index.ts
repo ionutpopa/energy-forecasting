@@ -1,4 +1,3 @@
-// @ts-ignore
 import cron from 'node-cron'
 import { CO2EmissionsTable, connectDb, deleteSpecificTable, dropAllTables, ElectricityConsumptionPerCapitaTable, ElectricityConsumptionTable, ElectricityGenerationTable, GdpPerCapitaGrowthTable, PopulationGrowthTable, WeatherDataTable } from './database/config'
 import logger from './utils/formatLogs'
