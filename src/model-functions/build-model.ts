@@ -8,11 +8,10 @@ export const buildModel = (name: string, activationIdentifier: ActivationIdentif
         name: name
     });
 
-    // Adds a layer instance on top of the layer stack.
-    // no hidden layers, linear activation
+    // Adds a layer instance on top of the layer stack; No hidden layers, linear activation
     model.add(tf.layers.dense({ units: 1, inputShape: [1], activation: activationIdentifier }));
 
-    // Add more hidden layers
+    // Hidden layers
     model.add(tf.layers.dense({ units: 32, activation: 'relu' }));
     model.add(tf.layers.dense({ units: 16, activation: 'relu' }));
 
